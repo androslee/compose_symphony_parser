@@ -164,11 +164,11 @@ def print_children(node, depth=0):
 
             def pretty_comparison(comparator_string: str) -> str:
                 if comparator_string == ":lte":
-                    return "≤"
+                    return "<="
                 if comparator_string == ":lt":
                     return "<"
                 if comparator_string == ":gte":
-                    return "≥"
+                    return ">="
                 if comparator_string == ":gt":
                     return ">"
                 return comparator_string
