@@ -16,10 +16,13 @@ pip3 install edn_format
 
 usages:
 
-parser.py -i infile -o outfile -m quantconnect
+python3 parser.py -i infile -o outfile -m quantconnect
 	saves quantconnect parsed output to "outfile"
-	
-parser.py -i infile 
+
+python3 ./parser.py -i inputs/simple.edn -m vector
+  prints vectorbt output to screen
+
+python3 parser.py -i infile 
 	will just print human readable output to the screen
 
 infile: the file that contains the text encoded symphony 

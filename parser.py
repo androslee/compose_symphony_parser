@@ -115,6 +115,8 @@ class OutfileVectorBt(OutfileBase):
     def show(self, data):
         for key in data:
             print(data[key])
+            
+        print("\r\n this shows the data ends up being nested dictionaries.  further parsing/looping is needed")
         
 
 #TODO arg parser for inputs: input file, output file, output mode
