@@ -29,11 +29,13 @@ class InFileReader:
         
     def readFile(self):
         with open(self.filePath, "r") as infile:
-            self.data = infile.read()
+            self.file_contents_string = infile.read()
         #  'inputFile.edn'
-        #data_with_wrapping_string_removed = json.load(open(self.filePath, 'r'))
-        #self.data = edn_format.loads(data_with_wrapping_string_removed)
-
+        data_with_wrapping_string_removed = json.load(open(self.filePath, 'r'))
+        self.data = edn_format.loads(data_with_wrapping_string_removed)
+        #>>> edn_format.dumps({1, 2, 3})
+        #'#{1 2 3}'
+        
         return
         
         
@@ -100,8 +102,20 @@ class OutfileQuantConnect(OutfileBase):
         super().__init__(self)
         return
         
+    
+#TODO finish    
+class OutfileVectorBt(OutfileBase):
+    
+    
+    def __init__(self):
+        super().__init__()
+        return
         
-
+    # 
+    def show(self, data):
+        for key in data:
+            print(data[key])
+        
 
 #TODO arg parser for inputs: input file, output file, output mode
 def main()-> int:
@@ -116,9 +130,15 @@ def main()-> int:
     inFileParser = InFileReader(args["infile"])
     inFileParser.readFile()
     
-    humanParser = OutfileHuman(args["infile"])
     
-    humanParser.show(inFileParser.data)
+    
+    if args["mode"] == "human":
+        humanParser = OutfileHuman(args["infile"])
+        humanParser.show(inFileParser.file_contents_string)
+    
+    if args["mode"] == "vector":
+        vectorParser = OutfileVectorBt()
+        vectorParser.show(inFileParser.data)
     
     return 0
 #TODO make generic class for output mode
