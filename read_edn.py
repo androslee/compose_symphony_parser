@@ -1,6 +1,7 @@
 import copy
 from dataclasses import dataclass
 import datetime
+import io
 import typing
 import edn_format
 import json
@@ -29,16 +30,16 @@ def main():
             data_with_wrapping_string_removed)
         root_data = typing.cast(
             dict, convert_edn_to_pythonic(root_data_immutable))
-        root_rule = root_data[":symphony"]
+        root_node = root_data[":symphony"]
     except:
         root_data_immutable = edn_format.loads(open(path, 'r').read())
-        root_rule = typing.cast(
+        root_node = typing.cast(
             dict, convert_edn_to_pythonic(root_data_immutable))
 
-    print_children(root_rule)
+    print(convert_to_pretty_format(root_node))
     print()
 
-    allocateable_assets = collect_allocateable_assets(root_rule)
+    allocateable_assets = collect_allocateable_assets(root_node)
     print("Possible assets to allocate toward:", allocateable_assets)
     problematic_assets = {  # TODO: look entries up (I have this in the ETF DB)
         "UGE": "Volume is too low",
@@ -50,7 +51,7 @@ def main():
             print("WARNING", asset, problematic_assets[asset])
     print()
 
-    all_referenced_assets = collect_referenced_assets(root_rule)
+    all_referenced_assets = collect_referenced_assets(root_node)
     print("All assets referenced:", all_referenced_assets)
     latest_founded_asset = max(all_referenced_assets, key=get_founded_date)
     latest_founded_date = get_founded_date(latest_founded_asset)
@@ -340,7 +341,7 @@ def pretty_filter(node) -> str:
     return f"{pretty_selector(node)} by {pretty_indicator(node[':sort-by-fn'], '____', node[':sort-by-window-days'])}"
 
 
-def print_children(node, depth=0, parent_node_branch_state: typing.Optional[NodeBranchState] = None):
+def print_children(node, depth=0, parent_node_branch_state: typing.Optional[NodeBranchState] = None, file=None):
     """
     Recursively visits every child node (depth-first)
     and pretty-prints it out.
@@ -365,7 +366,7 @@ def print_children(node, depth=0, parent_node_branch_state: typing.Optional[Node
 
         if is_asset_node(node):
             s += f" (max: {current_node_branch_state.weight:.1%})"
-        print(s)
+        print(s, file=file)
 
     if is_root_node(node):
         pretty_log(node[":name"])
@@ -394,7 +395,15 @@ def print_children(node, depth=0, parent_node_branch_state: typing.Optional[Node
 
     for child in get_node_children(node):
         print_children(child, depth=depth+1,
-                       parent_node_branch_state=current_node_branch_state)
+                       parent_node_branch_state=current_node_branch_state, file=file)
+
+
+def convert_to_pretty_format(root_node) -> str:
+    output = io.StringIO()
+    print_children(root_node, file=output)
+    text = output.getvalue()
+    output.close()
+    return text
 
 
 if __name__ == "__main__":
