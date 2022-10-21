@@ -1,3 +1,4 @@
+import copy
 import datetime
 from enum import Enum
 import typing
@@ -187,12 +188,15 @@ def get_rhs_ticker(node) -> typing.Optional[str]:
         return node[":rhs-val"]
 
 
-class ComposerIndicatorFunction(Enum):
+class ComposerIndicatorFunction:
     RSI = ":relative-strength-index"
+    CURRENT_PRICE = ":current-price"
+    CUMULATIVE_RETURN = ":cumulative-return"
+    MOVING_AVERAGE_PRICE = ":moving-average-price"
     # TODO: add more
 
 
-class ComposerComparison(Enum):
+class ComposerComparison:
     LTE = ":lte"
     LT = ":lt"
     GTE = ":gte"
@@ -208,13 +212,21 @@ def get_ticker_of_asset_node(node) -> str:
 # Human-readable transpiler
 #
 
-def pretty_fn(fn_string: ComposerIndicatorFunction) -> str:
+def pretty_fn(fn_string: str) -> str:
     if fn_string == ComposerIndicatorFunction.RSI:
         return "RSI"
+    if fn_string == ComposerIndicatorFunction.CURRENT_PRICE:
+        return "Close"
+    if fn_string == ComposerIndicatorFunction.CUMULATIVE_RETURN:
+        return "CumulativeReturn"
+    if fn_string == ComposerIndicatorFunction.MOVING_AVERAGE_PRICE:
+        # TODO: confirm this is SMA and not a different MA type like EMA
+        return "SMA"
+    print(f"UNEXPECTED function {fn_string}")
     return fn_string
 
 
-def pretty_comparison(comparator_string: ComposerComparison) -> str:
+def pretty_comparison(comparator_string: str) -> str:
     if comparator_string == ComposerComparison.LTE:
         return "<="
     if comparator_string == ComposerComparison.LT:
@@ -223,21 +235,30 @@ def pretty_comparison(comparator_string: ComposerComparison) -> str:
         return ">="
     if comparator_string == ComposerComparison.GT:
         return ">"
+    print(f"UNEXPECTED comparator {comparator_string}")
     return comparator_string
 
 
-def pretty_lhs(node) -> str:
-    if type(node[':lhs-val']) != str:
-        return node[':lhs-val']
+
+def pretty_indicator(fn: str, val, window_days: typing.Optional[int]):
+    if fn == ComposerIndicatorFunction.CURRENT_PRICE:
+        return f"{pretty_fn(fn)}({val})"
     else:
-        return f"{pretty_fn(node[':lhs-fn'])}({node[':lhs-val']}, {node[':lhs-window-days']})"
+        return f"{pretty_fn(fn)}({val}, {window_days}d)"
+
+
+def pretty_lhs(node) -> str:
+    if type(node[":lhs-val"]) != str:
+        return node[":lhs-val"]
+    else:
+        return pretty_indicator(node[":lhs-fn"], node[":lhs-val"], node.get(":lhs-window-days"))
 
 
 def pretty_rhs(node) -> str:
     if node.get(':rhs-fixed-value?', type(node[':rhs-val']) != str):
         return node[':rhs-val']
     else:
-        return f"{pretty_fn(node[':rhs-fn'])}({node[':rhs-val']}, {node[':rhs-window-days']})"
+        return pretty_indicator(node[":rhs-fn"], node[":rhs-val"], node.get(":rhs-window-days"))
 
 
 def pretty_condition(node) -> str:
@@ -254,8 +275,7 @@ def pretty_selector(node) -> str:
 
 
 def pretty_filter(node) -> str:
-    # TODO: sort-by-window-days does not make sense for current-price, exclude
-    return f"{pretty_selector(node)} by {node[':sort-by-fn']}(____, {node[':sort-by-window-days']})"
+    return f"{pretty_selector(node)} by {pretty_indicator(node[':sort-by-fn'], '____', node[':sort-by-window-days'])}"
 
 
 def print_children(node, depth=0):
