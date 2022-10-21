@@ -5,6 +5,7 @@ a text parser that will attempt to export a text encoded composer symphony, to w
 REQUIREMENTS
 needs python3
 pip3 install edn_format
+pip3 install requests
 
 
 
@@ -24,8 +25,14 @@ python3 ./parser.py -i inputs/simple.edn -m vector
 
 python3 parser.py -i infile 
 	will just print human readable output to the screen
+	
+ python3 ./parser.py -m vector -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u
+  will print a vectorbt formatted output, will download a symphony directly from composer
 
 infile: the file that contains the text encoded symphony 
+
+	you can now use the -u option when specifying an infile. This will cause it to treat the infile as a symphony url and it will then pull the data down from composer. 
+
 outfile: the file you want the parsed output to go to
 quantconnect: the output mode style
 	eventual, hopeful, supported output style modes: quantconnect, vectorbt, tradingview, thinkscript

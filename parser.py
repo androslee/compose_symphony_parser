@@ -12,27 +12,33 @@ thinkscript
 
 
 '''
+import string
 import edn_format
 import argparse
 import json
 import sys
-
+import requests
+import re
 
 
 class InFileReader:
     
-    def __init__(self, filePath):
+    def __init__(self, filePath :string, fileData :string):
         self.filePath = filePath
+        self.file_contents_string = fileData
         self.data = None
         return
         
         
     def readFile(self):
-        with open(self.filePath, "r") as infile:
-            self.file_contents_string = infile.read()
+        if self.file_contents_string == None:
+            with open(self.filePath, "r") as infile:
+                self.file_contents_string = infile.read()
         #  'inputFile.edn'
-        data_with_wrapping_string_removed = json.load(open(self.filePath, 'r'))
-        self.data = edn_format.loads(data_with_wrapping_string_removed)
+            data_with_wrapping_string_removed = json.load(self.file_contents_string)
+            self.data = edn_format.loads(data_with_wrapping_string_removed)
+        else:
+            self.data = edn_format.loads(self.file_contents_string)
         #>>> edn_format.dumps({1, 2, 3})
         #'#{1 2 3}'
         
@@ -123,13 +129,31 @@ class OutfileVectorBt(OutfileBase):
 def main()-> int:
     parser = argparse.ArgumentParser(description='Composer Symphony text parser')
     parser.add_argument('-i','--infile', dest="infile", action="store", help=' input file we read the symphony text from.  full path please', required=True)
+    parser.add_argument('-u', '--url', action="store_true", help="specifies that the input file path is actually the url to a shared, public symphony on composer.trade")
     parser.add_argument('-o','--outfile', dest="outfile", action="store", default="OUTFILE", help=' output file to save the parsed text to.  if not given, will use stdout', required=False)
     parser.add_argument('-m','--mode', dest="mode", action="store", default="human", help=' output parsing mode to use.  if none given, will parse for "human readable output".  modes are: quantconnect, vectorbt, tradingview, thinkscript', required=False)
     args = vars(parser.parse_args())
 
+    if args['url'] == True:
+        #todo move to request this from the composer site instead of hardcoding
+        composerConfig = {
+                "projectId" : "leverheads-278521",
+                "databaseName" : "(default)"
+            }
+        m = re.search('\/symphony\/([^\/]+)', args["infile"])
+        symphId = m.groups(1)[0]
+        symphReq = requests.get(f'https://firestore.googleapis.com/v1/projects/{composerConfig["projectId"]}/databases/{composerConfig["databaseName"]}/documents/symphony/{symphId}')
+        resp = json.loads(symphReq.text)
+        
+        if 'fields' not in resp:
+            print("\r\nWas this a private symphony link? response 'object' had no 'fields' key.  could not parse\r\n  Error 2")
+            sys.exit(2)
+        
+        inFileParser = InFileReader(None, resp['fields']['latest_version_edn']['stringValue'])
+    else:
+        print(args["infile"])
+        inFileParser = InFileReader(args["infile"], None)
     
-    print(args["infile"])
-    inFileParser = InFileReader(args["infile"])
     inFileParser.readFile()
     
     
