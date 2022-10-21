@@ -109,6 +109,10 @@ def collect_referenced_assets(node) -> set[str]:
 # - if :rhs-fixed-value, then :rhs-val
 # - stuff in :filter
 
+# TODO: find unexpected attributes (future-proofing)
+# TODO: collect all conditions from branch paths
+# TODO: collect all indicators (for precomputing)
+
 
 #
 # Traversal helpers and documentation
