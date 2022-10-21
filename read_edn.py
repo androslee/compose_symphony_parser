@@ -19,7 +19,8 @@ def convert_edn_to_pythonic(d):
 
 def main():
     # path = 'inputs/inputFile.edn'
-    path = 'inputs/jamestest.edn'
+    # path = 'inputs/jamestest.edn'
+    path = 'inputs/tqqq_long_term.edn'
     try:
         # Data is wrapped with "" and has escaped all the "s, this de-escapes
         data_with_wrapping_string_removed = json.load(
