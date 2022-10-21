@@ -1,14 +1,15 @@
 import datetime
+from enum import Enum
 import typing
 import edn_format
 import json
 
 
-def make_nice(d):
+def convert_edn_to_pythonic(d):
     if type(d) == edn_format.immutable_dict.ImmutableDict:
-        return {make_nice(k): make_nice(v) for k, v in d.items()}
+        return {convert_edn_to_pythonic(k): convert_edn_to_pythonic(v) for k, v in d.items()}
     elif type(d) == edn_format.immutable_list.ImmutableList:
-        return [make_nice(v) for v in d]
+        return [convert_edn_to_pythonic(v) for v in d]
     elif type(d) == edn_format.edn_lex.Keyword:
         return ":" + d.name
     else:
@@ -16,43 +17,21 @@ def make_nice(d):
 
 
 def main():
-    # Data is wrapped with "" and has escaped all the "s, this de-escapes
-    data_with_wrapping_string_removed = json.load(open('inputFile.edn', 'r'))
-    root_data_immutable = edn_format.loads(data_with_wrapping_string_removed)
-    root_data = typing.cast(dict, make_nice(root_data_immutable))
-
-    #
-    # Data in root_data:
-    #
-    # ":uid": "sdfadfddasf",
-    # ":capital": 10000,
-    # ":apply-taf-fee?": true,
-    # ":symphony-benchmarks": [],
-    # ":slippage-percent": 0.0005,
-    # ":client-commit": "bvcxdfff",
-    # ":apply-reg-fee?": true,
-    # ":ticker-benchmarks": [
-    #     {
-    #         ":color": "#F6609F",
-    #         ":id": "SPY",
-    #         ":checked?": true,
-    #         ":type": ":ticker",
-    #         ":ticker": "SPY"
-    #     }
-    # ]
-    # print(json.dumps(root_data, indent=4))
-
-    root_rule = root_data[":symphony"]
-    #
-    # Data in root_rule:
-    #
-    # ":id": "43refdscxz",
-    # ":step": ":root",
-    # ":name": "farm fun 99",
-    # ":description": "",
-    # ":rebalance": ":daily",
-    # ":children": [...]
-    # print(json.dumps(root_rule, indent=4))
+    # path = 'inputs/inputFile.edn'
+    path = 'inputs/jamestest.edn'
+    try:
+        # Data is wrapped with "" and has escaped all the "s, this de-escapes
+        data_with_wrapping_string_removed = json.load(
+            open(path, 'r'))
+        root_data_immutable = edn_format.loads(
+            data_with_wrapping_string_removed)
+        root_data = typing.cast(
+            dict, convert_edn_to_pythonic(root_data_immutable))
+        root_rule = root_data[":symphony"]
+    except:
+        root_data_immutable = edn_format.loads(open(path, 'r').read())
+        root_rule = typing.cast(
+            dict, convert_edn_to_pythonic(root_data_immutable))
 
     print_children(root_rule)
     print()
@@ -77,18 +56,24 @@ def main():
         f"Earliest backtest date is {latest_founded_date} (when {latest_founded_asset} was founded)")
 
 
+#
+# External lookups for linting use cases
+#
 def get_founded_date(ticker: str) -> datetime.date:
     # TODO: look values up (I have this in the ETF DB)
     return datetime.date(2017, 7, 1)
 
 
+#
+# Basic tree traversers
+#
 def collect_allocateable_assets(node) -> set[str]:
     s = set()
-    if node[':step'] == ":asset":
-        s.add(node[':ticker'])
-        return s  # this is a leaf node, can end here
+    if is_asset_node(node):
+        s.add(get_ticker_of_asset_node(node))
+        return s
 
-    for child in node[":children"] if ":children" in node else []:
+    for child in get_node_children(node):
         s.update(collect_allocateable_assets(child))
     return s
 
@@ -98,16 +83,15 @@ def collect_if_referenced_assets(node) -> set[str]:
     Collects tickers referenced by if-conditions
     """
     s = set()
-    if node[':step'] == ":asset":
-        # s.add(node[':ticker'])
-        return s  # this is a leaf node, can end here
-    elif node[':step'] == ":if-child" and not node[":is-else-condition?"]:
-        if type(node[':lhs-val']) == str:
-            s.add(node[':lhs-val'])
-        if not node.get(':rhs-fixed-value?', type(node[':rhs-val']) != str):
-            s.add(node[':rhs-val'])
+    if is_conditional_node(node):
+        lhs_ticker = get_lhs_ticker(node)
+        if lhs_ticker:
+            s.add(lhs_ticker)
+        rhs_ticker = get_rhs_ticker(node)
+        if rhs_ticker:
+            s.add(rhs_ticker)
 
-    for child in node[":children"] if ":children" in node else []:
+    for child in get_node_children(node):
         s.update(collect_if_referenced_assets(child))
     return s
 
@@ -118,96 +102,201 @@ def collect_referenced_assets(node) -> set[str]:
     s.update(collect_allocateable_assets(node))
     return s
 
+# TODO: collect parameters we might optimize
+# - periods
+# - if :rhs-fixed-value, then :rhs-val
+# - stuff in :filter
+
+
+#
+# Traversal helpers and documentation
+#
+def get_node_children(node) -> list:
+    return node[":children"] if ":children" in node else []
+
+
+def build_basic_node_type_checker(step: str):
+    def is_node_of_type(node) -> bool:
+        return node[":step"] == step
+    return is_node_of_type
+
+
+is_root_node = build_basic_node_type_checker(":root")
+
+is_asset_node = build_basic_node_type_checker(":asset")
+# ':ticker'
+# rest are ephemeral/derived from :ticker:
+# ':name'
+# ':has_marketcap'
+# ':exchange'
+# ':price'
+# ':dollar_volume'
+
+is_if_node = build_basic_node_type_checker(":if")
+# All :children are definitely if-child
+
+is_if_child_node = build_basic_node_type_checker(":if-child")
+# ':is-else-condition?'
+# if not an else block, see `is_conditional_node`
+
+is_equal_weight_node = build_basic_node_type_checker(":wt-cash-equal")
+# ':window-days': Optional[int] TODO: what does it mean?
+
+is_group_node = build_basic_node_type_checker(":group")
+# ':name'
+# ':collapsed?'
+
+is_filter_node = build_basic_node_type_checker(":filter")
+# ':select?': should always be True... not sure why this is here.
+# ':select-fn': :bottom or :top
+# ':select-n': str, annoyingly. Always an int
+
+# ':sort-by?': should always be True... not sure why this is here.
+# ':sort-by-fn'
+# ':sort-by-window-days': str, annoyingly
+
+# ':weight': TODO account for this properly
+# ':collapsed-specified-weight?': TODO: where is this?
+
+
+def is_conditional_node(node) -> bool:
+    """
+    if-child and not else
+
+    # ':lhs-fn'
+    # ':lhs-window-days'
+    # ':lhs-val'
+
+    # ':comparator'
+
+    # ':rhs-fn'
+    # ':rhs-fixed-value?'
+    # ':rhs-window-days'
+    # ':rhs-val'
+    """
+    return is_if_child_node(node) and not node[":is-else-condition?"]
+
+
+def get_lhs_ticker(node) -> typing.Optional[str]:
+    return node[':lhs-val']
+
+
+def get_rhs_ticker(node) -> typing.Optional[str]:
+    # yes, rhs behaves differently than lhs.
+    if not node.get(':rhs-fixed-value?', type(node[':rhs-val']) != str):
+        return node[":rhs-val"]
+
+
+class ComposerIndicatorFunction(Enum):
+    RSI = ":relative-strength-index"
+    # TODO: add more
+
+
+class ComposerComparison(Enum):
+    LTE = ":lte"
+    LT = ":lt"
+    GTE = ":gte"
+    GT = ":gt"
+    # TODO: add more
+
+
+def get_ticker_of_asset_node(node) -> str:
+    return node[':ticker']
+
+
+#
+# Human-readable transpiler
+#
+
+def pretty_fn(fn_string: ComposerIndicatorFunction) -> str:
+    if fn_string == ComposerIndicatorFunction.RSI:
+        return "RSI"
+    return fn_string
+
+
+def pretty_comparison(comparator_string: ComposerComparison) -> str:
+    if comparator_string == ComposerComparison.LTE:
+        return "<="
+    if comparator_string == ComposerComparison.LT:
+        return "<"
+    if comparator_string == ComposerComparison.GTE:
+        return ">="
+    if comparator_string == ComposerComparison.GT:
+        return ">"
+    return comparator_string
+
+
+def pretty_lhs(node) -> str:
+    if type(node[':lhs-val']) != str:
+        return node[':lhs-val']
+    else:
+        return f"{pretty_fn(node[':lhs-fn'])}({node[':lhs-val']}, {node[':lhs-window-days']})"
+
+
+def pretty_rhs(node) -> str:
+    if node.get(':rhs-fixed-value?', type(node[':rhs-val']) != str):
+        return node[':rhs-val']
+    else:
+        return f"{pretty_fn(node[':rhs-fn'])}({node[':rhs-val']}, {node[':rhs-window-days']})"
+
+
+def pretty_condition(node) -> str:
+    return f"{pretty_lhs(node)} {pretty_comparison(node[':comparator'])} {pretty_rhs(node)}"
+
+
+def pretty_selector(node) -> str:
+    if node[":select-fn"] == ":bottom":
+        return f"bottom {node[':select-n']}"
+    elif node[":select-fn"] == ":top":
+        return f"top {node[':select-n']}"
+    else:
+        return f"UNEXPECTED :select-fn {node[':select-fn']}"
+
+
+def pretty_filter(node) -> str:
+    # TODO: sort-by-window-days does not make sense for current-price, exclude
+    return f"{pretty_selector(node)} by {node[':sort-by-fn']}(____, {node[':sort-by-window-days']})"
+
 
 def print_children(node, depth=0):
     """
     Recursively visits every child node (depth-first)
     and pretty-prints it out.
     """
-    # Every node has ":id", maybe ":children", and ":step"
-    node_type = node[":step"]
-    if node_type == ":root":
-        # ':name': str
-        # ':description': str
-        # ':rebalance': TODO
-        print("  " * depth, node[":name"])
-    elif node_type == ":wt-cash-equal":
-        # ':window-days': Optional[int] TODO: what does it mean?
-        print("  " * depth, "Weight equally:")
+    def pretty_log(message: str):
+        s = "  " * depth
+        if ":weight" in node:
+            weight = int(node[":weight"][":num"]) / \
+                int(node[":weight"][":den"])
+            s += f"{weight:.0%}"
+        s += " " + message
+        print(s)
 
-    elif node_type == ":if":
-        # All :children are definitely if-child
-
-        print("  " * depth, "if")
-    elif node_type == ":if-child":
-        # ':is-else-condition?'
-
-        if node[":is-else-condition?"]:
-            print("  " * depth, "else")
+    if is_root_node(node):
+        pretty_log(node[":name"])
+    elif is_equal_weight_node(node):
+        pretty_log("Weight equally:")
+    elif node[":step"] == ":wt-cash-specified":
+        # children will have :weight
+        # ':weight': {':num': 88, ':den': 100},
+        pretty_log("Weight accordingly:")
+    elif is_if_node(node):
+        pretty_log("if")
+    elif is_if_child_node(node):
+        if not is_conditional_node(node):
+            pretty_log("else")
         else:
-            # ':rhs-fn'
-            # ':rhs-fixed-value?'
-            # ':rhs-window-days'
-            # ':rhs-val'
-
-            # ':lhs-fn'
-            # ':lhs-window-days'
-            # ':lhs-val'
-
-            # ':comparator'
-
-            # NOTE: parameter if :rhs-fixed-value
-            def pretty_fn(fn_string: str) -> str:
-                if fn_string == ":relative-strength-index":
-                    return "RSI"
-                return fn_string
-
-            def pretty_comparison(comparator_string: str) -> str:
-                if comparator_string == ":lte":
-                    return "<="
-                if comparator_string == ":lt":
-                    return "<"
-                if comparator_string == ":gte":
-                    return ">="
-                if comparator_string == ":gt":
-                    return ">"
-                return comparator_string
-
-            lhs = node[':lhs-val'] if type(
-                node[':lhs-val']) != str else f"{pretty_fn(node[':lhs-fn'])}({node[':lhs-val']}, {node[':lhs-window-days']})"
-            rhs = node[':rhs-val'] if node.get(':rhs-fixed-value?', type(
-                node[':rhs-val']) != str) else f"{pretty_fn(node[':rhs-fn'])}({node[':rhs-val']}, {node[':rhs-window-days']})"
-
-            print("  " * depth, lhs,
-                  pretty_comparison(node[':comparator']), rhs)
-
-    elif node_type == ":group":
-        # ':name'
-        # ':collapsed?'
-        print("  " * depth, f"// {node[':name']}")
-    elif node_type == ":filter":
-        # ':select?'
-        # ':select-fn'
-        # ':select-n'
-        # ':sort-by-fn'
-        # ':sort-by-window-days'
-        # ':weight'
-        # ':sort-by?'
-        # ':collapsed-specified-weight?'
-        print("  " * depth, node_type,
-              "{TODO express selection/sorting/weighting criteria}")
-    elif node_type == ":asset":
-        # ':name'
-        # ':ticker'
-        # ':has_marketcap'
-        # ':exchange'
-        # ':price'
-        # ':dollar_volume'
-        print("  " * depth, node[":ticker"])
+            pretty_log(pretty_condition(node))
+    elif is_group_node(node):
+        pretty_log(f"// {node[':name']}")
+    elif is_filter_node(node):
+        pretty_log(pretty_filter(node))
+    elif is_asset_node(node):
+        pretty_log(get_ticker_of_asset_node(node))
     else:
-        print("  " * depth, "UNIMPLEMENTED:", node_type)
+        pretty_log(f"UNIMPLEMENTED: {node[':step']}")
 
-    for child in node[":children"] if ":children" in node else []:
+    for child in get_node_children(node):
         print_children(child, depth=depth+1)
 
 
