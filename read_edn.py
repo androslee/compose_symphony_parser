@@ -192,11 +192,16 @@ def get_rhs_ticker(node) -> typing.Optional[str]:
 
 
 class ComposerIndicatorFunction:
-    RSI = ":relative-strength-index"
+    # TODO: fill in missing symbols
     CURRENT_PRICE = ":current-price"
     CUMULATIVE_RETURN = ":cumulative-return"
+    # STANDARD_DEVIATION_PRICE = ":todo"
+    # STANDARD_DEVIATION_RETURNS = ":todo"
+    # MAX_DRAWDOWN = ":todo"
     MOVING_AVERAGE_PRICE = ":moving-average-price"
-    # TODO: add more
+    # MOVING_AVERAGE_RETURNS = ":todo"
+    # EMA_PRICE = ":todo"
+    RSI = ":relative-strength-index"
 
 
 class ComposerComparison:
@@ -204,7 +209,7 @@ class ComposerComparison:
     LT = ":lt"
     GTE = ":gte"
     GT = ":gt"
-    # TODO: add more
+    EQ = ":eq"
 
 
 def get_ticker_of_asset_node(node) -> str:
@@ -266,7 +271,6 @@ def pretty_fn(fn_string: str) -> str:
     if fn_string == ComposerIndicatorFunction.CUMULATIVE_RETURN:
         return "CumulativeReturn"
     if fn_string == ComposerIndicatorFunction.MOVING_AVERAGE_PRICE:
-        # TODO: confirm this is SMA and not a different MA type like EMA
         return "SMA"
     print(f"UNEXPECTED function {fn_string}")
     return fn_string
@@ -281,6 +285,8 @@ def pretty_comparison(comparator_string: str) -> str:
         return ">="
     if comparator_string == ComposerComparison.GT:
         return ">"
+    if comparator_string == ComposerComparison.EQ:
+        return "="
     print(f"UNEXPECTED comparator {comparator_string}")
     return comparator_string
 
