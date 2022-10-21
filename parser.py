@@ -144,7 +144,11 @@ def main()-> int:
         symphId = m.groups(1)[0]
         symphReq = requests.get(f'https://firestore.googleapis.com/v1/projects/{composerConfig["projectId"]}/databases/{composerConfig["databaseName"]}/documents/symphony/{symphId}')
         resp = json.loads(symphReq.text)
-  
+        
+        if 'fields' not in resp:
+            print("\r\nWas this a private symphony link? response 'object' had no 'fields' key.  could not parse\r\n  Error 2")
+            sys.exit(2)
+        
         inFileParser = InFileReader(None, resp['fields']['latest_version_edn']['stringValue'])
     else:
         print(args["infile"])

@@ -25,6 +25,9 @@ python3 ./parser.py -i inputs/simple.edn -m vector
 
 python3 parser.py -i infile 
 	will just print human readable output to the screen
+	
+ python3 ./parser.py -m vector -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u
+  will print a vectorbt formatted output, will download a symphony directly from composer
 
 infile: the file that contains the text encoded symphony 
 
