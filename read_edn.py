@@ -239,6 +239,12 @@ def pretty_comparison(comparator_string: str) -> str:
     return comparator_string
 
 
+def debug_print_node(node):
+    new_node = copy.copy(node)
+    del new_node[":children"]
+    del new_node[":step"]
+    print(json.dumps(new_node, indent=4, sort_keys=True))
+
 
 def pretty_indicator(fn: str, val, window_days: typing.Optional[int]):
     if fn == ComposerIndicatorFunction.CURRENT_PRICE:
