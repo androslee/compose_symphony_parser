@@ -1,6 +1,6 @@
 import copy
+from dataclasses import dataclass
 import datetime
-from enum import Enum
 import typing
 import edn_format
 import json
@@ -142,7 +142,12 @@ is_if_child_node = build_basic_node_type_checker(":if-child")
 # if not an else block, see `is_conditional_node`
 
 is_equal_weight_node = build_basic_node_type_checker(":wt-cash-equal")
-# ':window-days': Optional[int] TODO: what does it mean?
+is_specified_weight_node = build_basic_node_type_checker(":wt-cash-specified")
+
+
+def is_weight_node(node):
+    return is_equal_weight_node(node) or is_specified_weight_node(node)
+
 
 is_group_node = build_basic_node_type_checker(":group")
 # ':name'
@@ -156,9 +161,6 @@ is_filter_node = build_basic_node_type_checker(":filter")
 # ':sort-by?': should always be True... not sure why this is here.
 # ':sort-by-fn'
 # ':sort-by-window-days': str, annoyingly
-
-# ':weight': TODO account for this properly
-# ':collapsed-specified-weight?': TODO: where is this?
 
 
 def is_conditional_node(node) -> bool:
@@ -285,27 +287,59 @@ def pretty_filter(node) -> str:
     return f"{pretty_selector(node)} by {pretty_indicator(node[':sort-by-fn'], '____', node[':sort-by-window-days'])}"
 
 
-def print_children(node, depth=0):
+@dataclass
+class NodeBranchState:
+    weight: float
+    branch_path_ids: list[str]
+
+
+def advance_branch_state(parent_node_branch_state: typing.Optional[NodeBranchState], node):
+    if not parent_node_branch_state:
+        return NodeBranchState(1, [])
+
+    current_node_branch_state = copy.deepcopy(parent_node_branch_state)
+    if is_if_child_node(node):
+        current_node_branch_state.branch_path_ids.append(node[":id"])
+
+    if ":weight" in node:
+        current_node_branch_state.weight *= int(node[":weight"][":num"]) / \
+            int(node[":weight"][":den"])
+    if is_filter_node(node):  # equal weight all filter results
+        current_node_branch_state.weight /= int(node[":select-n"])
+
+    return current_node_branch_state
+
+
+def print_children(node, depth=0, parent_node_branch_state: typing.Optional[NodeBranchState] = None):
     """
     Recursively visits every child node (depth-first)
     and pretty-prints it out.
     """
+    current_node_branch_state = advance_branch_state(
+        parent_node_branch_state, node)
+
     def pretty_log(message: str):
         s = "  " * depth
         if ":weight" in node:
             weight = int(node[":weight"][":num"]) / \
                 int(node[":weight"][":den"])
-            s += f"{weight:.0%}"
-        s += " " + message
+            if weight != 1:
+                s += f"{weight:.0%} => "
+
+        s += message
+
+        if is_asset_node(node):
+            s += f" (max: {current_node_branch_state.weight:.1%})"
         print(s)
 
     if is_root_node(node):
         pretty_log(node[":name"])
     elif is_equal_weight_node(node):
+        # sometimes children will have :weight (sometimes inserted as a no-op)
         pretty_log("Weight equally:")
-    elif node[":step"] == ":wt-cash-specified":
+    elif is_specified_weight_node(node):
         # children will have :weight
-        # ':weight': {':num': 88, ':den': 100},
+        # ':weight': {':num': 88, ':den': 100}, (numerator and denominator)
         pretty_log("Weight accordingly:")
     elif is_if_node(node):
         pretty_log("if")
@@ -313,7 +347,7 @@ def print_children(node, depth=0):
         if not is_conditional_node(node):
             pretty_log("else")
         else:
-            pretty_log(pretty_condition(node))
+            pretty_log(f"({pretty_condition(node)})")
     elif is_group_node(node):
         pretty_log(f"// {node[':name']}")
     elif is_filter_node(node):
@@ -324,7 +358,8 @@ def print_children(node, depth=0):
         pretty_log(f"UNIMPLEMENTED: {node[':step']}")
 
     for child in get_node_children(node):
-        print_children(child, depth=depth+1)
+        print_children(child, depth=depth+1,
+                       parent_node_branch_state=current_node_branch_state)
 
 
 if __name__ == "__main__":
