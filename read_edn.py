@@ -212,6 +212,49 @@ def get_ticker_of_asset_node(node) -> str:
 
 
 #
+# Tree path reducer/state thinker
+# - weight
+# - branch path
+# - parent node type (sans pass-through nodes like :group)
+#
+@dataclass
+class NodeBranchState:
+    weight: float  # do not read this on :wt-* nodes, behavior not guaranteed
+    branch_path_ids: list[str]
+    node_type: str
+
+
+def extract_weight_factor(parent_node_branch_state: NodeBranchState, node) -> float:
+    # Do not care about :weight if parent type is not a specific node type (UI leaves this strewn everywhere)
+    if ":weight" in node and parent_node_branch_state.node_type in (":wt-cash-specified",):
+        return int(node[":weight"][":num"]) / int(node[":weight"][":den"])
+    # If equal weight, apply weight now; children will ignore any :weight instruction on them.
+    elif node[":step"] == ":wt-cash-equal":
+        return 1. / len(get_node_children(node))
+    elif is_filter_node(node):  # equal weight all filter results
+        return 1. / int(node[":select-n"])
+    else:
+        return 1  # no change
+
+# "reducer" signature / design pattern
+
+
+def advance_branch_state(parent_node_branch_state: NodeBranchState, node) -> NodeBranchState:
+    current_node_branch_state = copy.deepcopy(parent_node_branch_state)
+
+    if node[":step"] != ":group":
+        current_node_branch_state.node_type = node[":step"]
+
+    if is_if_child_node(node):
+        current_node_branch_state.branch_path_ids.append(node[":id"])
+
+    current_node_branch_state.weight *= extract_weight_factor(
+        parent_node_branch_state, node)
+
+    return current_node_branch_state
+
+
+#
 # Human-readable transpiler
 #
 
@@ -287,44 +330,26 @@ def pretty_filter(node) -> str:
     return f"{pretty_selector(node)} by {pretty_indicator(node[':sort-by-fn'], '____', node[':sort-by-window-days'])}"
 
 
-@dataclass
-class NodeBranchState:
-    weight: float
-    branch_path_ids: list[str]
-
-
-def advance_branch_state(parent_node_branch_state: typing.Optional[NodeBranchState], node):
-    if not parent_node_branch_state:
-        return NodeBranchState(1, [])
-
-    current_node_branch_state = copy.deepcopy(parent_node_branch_state)
-    if is_if_child_node(node):
-        current_node_branch_state.branch_path_ids.append(node[":id"])
-
-    if ":weight" in node:
-        current_node_branch_state.weight *= int(node[":weight"][":num"]) / \
-            int(node[":weight"][":den"])
-    if is_filter_node(node):  # equal weight all filter results
-        current_node_branch_state.weight /= int(node[":select-n"])
-
-    return current_node_branch_state
-
-
 def print_children(node, depth=0, parent_node_branch_state: typing.Optional[NodeBranchState] = None):
     """
     Recursively visits every child node (depth-first)
     and pretty-prints it out.
     """
+    if not parent_node_branch_state:
+        # current node is :root, there is no higher node
+        parent_node_branch_state = NodeBranchState(1, [], "")
+    parent_node_branch_state = typing.cast(
+        NodeBranchState, parent_node_branch_state)
+
     current_node_branch_state = advance_branch_state(
         parent_node_branch_state, node)
 
     def pretty_log(message: str):
         s = "  " * depth
-        if ":weight" in node:
-            weight = int(node[":weight"][":num"]) / \
-                int(node[":weight"][":den"])
-            if weight != 1:
-                s += f"{weight:.0%} => "
+
+        weight_factor = extract_weight_factor(parent_node_branch_state, node)
+        if not is_weight_node(node) and weight_factor != 1:
+            s += f"{weight_factor:.0%} => "
 
         s += message
 
