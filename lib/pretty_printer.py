@@ -9,6 +9,11 @@ import edn_format
 import json
 import traceback
 
+
+# copied from pull request #5 version of read_edn.py 
+# from commit 43d807dea618bb45d6985e773d11f8a59088df21 
+
+
 class HumanPrinter:
     
     def __init__(self):

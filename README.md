@@ -29,6 +29,10 @@ python3 parser.py -i infile
  python3 ./parser.py -m vector -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u
   will print a vectorbt formatted output, will download a symphony directly from composer
 
+
+python3 ./parser.py -m human -u -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -p
+  prints a human formatted output, download the json formatted edn_encoded symphony directly from composer, AND all symphony parents, printing them directly to the screen
+
 infile: the file that contains the text encoded symphony 
 
 	you can now use the -u option when specifying an infile. This will cause it to treat the infile as a symphony url and it will then pull the data down from composer. 

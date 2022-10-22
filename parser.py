@@ -12,39 +12,74 @@ thinkscript
 
 
 '''
-import string
 import edn_format
+import traceback
+import requests
 import argparse
+import random
+import typing
+import string
+import time
+import copy
 import json
 import sys
-import requests
-import traceback
-import typing
 import re
 from lib.pretty_printer import HumanPrinter
 
 
 class InFileReader:
     
-    def __init__(self, filePath :string, fileData :string):
+    def __init__(self, filePath :string, resp :dict):
         self.filePath = filePath
-        self.file_contents_string = fileData
+        self.resp = resp
         self.data = None
         self.root_node = None
         return
         
         
-    def readFile(self):
+    def printHeader(self, url_loaded = False):
+         # 'latest_backtest_info', 'latest_backtest_edn', 'latest_version', 'hashtag', 'owner', 'description', 'created_at', 'latest_version_edn', 'sparkgraph_url', 'color', 'name', 'share-with-everyone?', 'stats', 'last_updated_at', 'youtube-url', 'cached_rebalance', 'latest_backtest_run_at', 'cached_rebalance_corridor_width', 'copied-from', 'backtest_url'])
+        
+        if url_loaded:
+            
+            owner = "UNKNOWN"
+            created = "UNKNOWN"
+            name = "UNKNOWN"
+            if "owner" in self.resp:
+                owner = self.resp['owner']
+            if "created" in self.resp:
+                owner = self.resp['created']
+            if "name" in self.resp:
+                owner = self.resp['name']
+            
+            
+            print("""\r\n========================================================\r\n
+            owner: %s\r\n
+            name:  %s\r\n
+            created at:%s \r\n
+                  
+                  
+                  """ % (owner, name, created ))
+            
+            
+    def readFile(self, url_loaded = False):
         try:
             # Data is wrapped with "" and has escaped all the "s, this de-escapes
-            data_with_wrapping_string_removed = json.load(
-                open(self.filePath, 'r'))
+            if not url_loaded:
+                data_with_wrapping_string_removed = json.load(
+                    open(self.filePath, 'r'))
+            else:
+                print("I'm fancy and url loaded already\r\n")
+                data_with_wrapping_string_removed = self.resp['fields']['latest_version_edn']['stringValue']
             root_data_immutable = edn_format.loads(
                 data_with_wrapping_string_removed)
             self.data = typing.cast(
                 dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
-           
-            self.root_node = self.data[":symphony"]
+            
+            self.root_node = self.data
+            if ":symphony" in self.data:
+                self.root_node = self.data[":symphony"]
+                
         except (NameError, TypeError) as exception_error:
             
             print(exception_error)
@@ -56,7 +91,9 @@ class InFileReader:
             self.data = typing.cast(
                 dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
             
-        self.root_node = self.data[":symphony"]
+        self.root_node = self.data
+        if ":symphony" in self.data:
+            self.root_node = self.data[":symphony"]
         '''
         if self.file_contents_string == None:
             with open(self.filePath, "r") as infile:
@@ -95,7 +132,6 @@ class OutfileHuman(OutfileBase):
     def show(self, data):
         
         jamesPrinter = HumanPrinter()
-        print("showing james printer now")
         jamesPrinter.main(data)
         '''
         data = data.replace(', :', ',:')
@@ -163,9 +199,14 @@ class OutfileVectorBt(OutfileBase):
 def main()-> int:
     parser = argparse.ArgumentParser(description='Composer Symphony text parser')
     parser.add_argument('-i','--infile', dest="infile", action="store", help=' input file we read the symphony text from.  full path please', required=True)
-    parser.add_argument('-u', '--url', action="store_true", help="specifies that the input file path is actually the url to a shared, public symphony on composer.trade")
     parser.add_argument('-o','--outfile', dest="outfile", action="store", default="OUTFILE", help=' output file to save the parsed text to.  if not given, will use stdout', required=False)
     parser.add_argument('-m','--mode', dest="mode", action="store", default="human", help=' output parsing mode to use.  if none given, will parse for "human readable output".  modes are: quantconnect, vectorbt, tradingview, thinkscript', required=False)
+    
+    
+    parser.add_argument('-u', '--url', action="store_true", dest='url', default='False', help="specifies that the input file path is actually the url to a shared, public symphony on composer.trade")
+    parser.add_argument('-p', '--parent', action="store_true", dest='parent', default='False', help="specifies that we should try and look up the parents of this symphony, and get all previous copied information too.  only works if the 'infile' given was a url")
+    
+    
     args = vars(parser.parse_args())
 
     if args['url'] == True:
@@ -176,29 +217,70 @@ def main()-> int:
             }
         m = re.search('\/symphony\/([^\/]+)', args["infile"])
         symphId = m.groups(1)[0]
-        symphReq = requests.get(f'https://firestore.googleapis.com/v1/projects/{composerConfig["projectId"]}/databases/{composerConfig["databaseName"]}/documents/symphony/{symphId}')
-        resp = json.loads(symphReq.text)
         
-        if 'fields' not in resp:
-            print("\r\nWas this a private symphony link? response 'object' had no 'fields' key.  could not parse\r\n  Error 2")
-            sys.exit(2)
+        current_symph_id = symphId
+        response_list = []
+        while current_symph_id:
+            symphReq = requests.get(f'https://firestore.googleapis.com/v1/projects/{composerConfig["projectId"]}/databases/{composerConfig["databaseName"]}/documents/symphony/{symphId}')
+            resp = json.loads(symphReq.text)
+            # 'latest_backtest_info', 'latest_backtest_edn', 'latest_version', 'hashtag', 'owner', 'description', 'created_at', 'latest_version_edn', 'sparkgraph_url', 'color', 'name', 'share-with-everyone?', 'stats', 'last_updated_at', 'youtube-url', 'cached_rebalance', 'latest_backtest_run_at', 'cached_rebalance_corridor_width', 'copied-from', 'backtest_url'])
+
+            if 'fields' not in resp:
+                print("\r\nWas this a private symphony link? response 'object' had no 'fields' key.  could not parse\r\n  Error 2")
+                #sys.exit(2)
+                current_symph_id = None
+                
+            if args['parent'] == True:
+                if 'copied-from' in resp['fields']:
+                    print("old id \r\n %s \r\nnew id \r\n %s\r\n" % (current_symph_id, resp['fields']['copied-from']['stringValue']))
+                    if current_symph_id == resp['fields']['copied-from']['stringValue']:
+                        print("copied from fields are the same, no more parents, ending the lookups")
+                        # set current id to None, which should end our loop, and let us start looping over all our responses
+                        current_symph_id = None
+                    else:
+                        # different parent id found, copy it, and then lets loop over and grab the next one
+                        current_symph_id = resp['fields']['copied-from']['stringValue']
+                else:
+                    current_symph_id = None
+                sleep_time = 2 + 20 * random.random()
+                print("-->random delay of %s between requests" % str(sleep_time))
+                time.sleep(sleep_time)
+                
+            # user did not ask for a "symphony parent lookup, so we will not try to loop over things
+            else:
+                print("---> skipping symphony parent check")
+                current_symph_id = None
+            # whatever the response was, copy it into our master response list.  we'll use all the responses later
+            response_list.append(copy.deepcopy(resp))
+        #import pdb; pdb.set_trace()
         
-        inFileParser = InFileReader(None, resp['fields']['latest_version_edn']['stringValue'])
+        for resp in response_list:
+            print(json.dumps(resp['fields']['latest_version_edn']['stringValue'], indent=2))
+            inFileParser = InFileReader(None, resp)
+            inFileParser.printHeader(url_loaded = True)
+            inFileParser.readFile(url_loaded = True)
+            
+            if args["mode"] == "human":
+                humanParser = OutfileHuman(args["infile"])
+                humanParser.show(inFileParser.root_node)
+
+            if args["mode"] == "vector":
+                vectorParser = OutfileVectorBt()
+                vectorParser.show(inFileParser.data)
+            
     else:
         print(args["infile"])
         inFileParser = InFileReader(args["infile"], None)
+        inFileParser.readFile()
+
     
-    inFileParser.readFile()
-    
-    
-    
-    if args["mode"] == "human":
-        humanParser = OutfileHuman(args["infile"])
-        humanParser.show(inFileParser.root_node)
-    
-    if args["mode"] == "vector":
-        vectorParser = OutfileVectorBt()
-        vectorParser.show(inFileParser.data)
+        if args["mode"] == "human":
+            humanParser = OutfileHuman(args["infile"])
+            humanParser.show(inFileParser.root_node)
+
+        if args["mode"] == "vector":
+            vectorParser = OutfileVectorBt()
+            vectorParser.show(inFileParser.data)
     
     return 0
 #TODO make generic class for output mode
