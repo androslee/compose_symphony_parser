@@ -18,7 +18,10 @@ import argparse
 import json
 import sys
 import requests
+import traceback
+import typing
 import re
+from lib.pretty_printer import HumanPrinter
 
 
 class InFileReader:
@@ -27,10 +30,34 @@ class InFileReader:
         self.filePath = filePath
         self.file_contents_string = fileData
         self.data = None
+        self.root_node = None
         return
         
         
     def readFile(self):
+        try:
+            # Data is wrapped with "" and has escaped all the "s, this de-escapes
+            data_with_wrapping_string_removed = json.load(
+                open(self.filePath, 'r'))
+            root_data_immutable = edn_format.loads(
+                data_with_wrapping_string_removed)
+            self.data = typing.cast(
+                dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
+           
+            self.root_node = self.data[":symphony"]
+        except (NameError, TypeError) as exception_error:
+            
+            print(exception_error)
+            
+            my_traceback = traceback.format_exc() # returns a str
+            print(my_traceback)
+            
+            root_data_immutable = edn_format.loads(open(self.filePath, 'r').read())
+            self.data = typing.cast(
+                dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
+            
+        self.root_node = self.data[":symphony"]
+        '''
         if self.file_contents_string == None:
             with open(self.filePath, "r") as infile:
                 self.file_contents_string = infile.read()
@@ -39,6 +66,7 @@ class InFileReader:
             self.data = edn_format.loads(data_with_wrapping_string_removed)
         else:
             self.data = edn_format.loads(self.file_contents_string)
+        '''
         #>>> edn_format.dumps({1, 2, 3})
         #'#{1 2 3}'
         
@@ -65,6 +93,11 @@ class OutfileHuman(OutfileBase):
         return
     
     def show(self, data):
+        
+        jamesPrinter = HumanPrinter()
+        print("showing james printer now")
+        jamesPrinter.main(data)
+        '''
         data = data.replace(', :', ',:')
         data = data.split(",")
         x = 0
@@ -96,6 +129,7 @@ class OutfileHuman(OutfileBase):
             x = x + 1
         
         print(parsestring)
+        '''
         return
         
     
@@ -160,7 +194,7 @@ def main()-> int:
     
     if args["mode"] == "human":
         humanParser = OutfileHuman(args["infile"])
-        humanParser.show(inFileParser.file_contents_string)
+        humanParser.show(inFileParser.root_node)
     
     if args["mode"] == "vector":
         vectorParser = OutfileVectorBt()
