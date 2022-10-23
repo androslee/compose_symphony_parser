@@ -24,7 +24,8 @@ import copy
 import json
 import sys
 import re
-from lib.pretty_printer import HumanPrinter
+
+from lib import edn_syntax, transpilers
 
 
 class InFileReader:
@@ -84,7 +85,7 @@ class InFileReader:
             root_data_immutable = edn_format.loads(
                 data_with_wrapping_string_removed)
             self.data = typing.cast(
-                dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
+                dict, edn_syntax.convert_edn_to_pythonic(root_data_immutable))
             
             self.root_node = self.data
             if ":symphony" in self.data:
@@ -99,7 +100,7 @@ class InFileReader:
             
             root_data_immutable = edn_format.loads(open(self.filePath, 'r').read())
             self.data = typing.cast(
-                dict, HumanPrinter.convert_edn_to_pythonic(root_data_immutable))
+                dict, edn_syntax.convert_edn_to_pythonic(root_data_immutable))
             
         self.root_node = self.data
         if ":symphony" in self.data:
@@ -128,10 +129,6 @@ class OutfileBase:
     
         return
     
-    
-    
-    
-#TODO finish    
 class OutfileHuman(OutfileBase):
     
     def __init__(self, filePath):
@@ -140,43 +137,7 @@ class OutfileHuman(OutfileBase):
         return
     
     def show(self, data):
-        
-        jamesPrinter = HumanPrinter()
-        jamesPrinter.main(data)
-        '''
-        data = data.replace(', :', ',:')
-        data = data.split(",")
-        x = 0
-        y = 0
-        tabcount = 0
-        tabstring = ""
-        parsestring = ""
-
-        while x < len(data):
-
-            if "[" in data[x]:
-                count = data[x].count("[")
-                y = y + count
-            if "]" in data[x - 1]:
-                count = data[x].count("]")
-                y = y - count
-
-            tabstring = "\n"
-            while tabcount < y:
-                tabstring = tabstring + "  "
-                tabcount = tabcount + 1
-
-            tabcount = 0
-
-            data[x] = tabstring + data[x] + ","
-
-            parsestring = parsestring + data[x]
-
-            x = x + 1
-        
-        print(parsestring)
-        '''
-        return
+        print(transpilers.HumanTextTranspiler.convert_to_string(data))
         
     
     
@@ -199,10 +160,7 @@ class OutfileVectorBt(OutfileBase):
         
     # 
     def show(self, data):
-        for key in data:
-            print(data[key])
-            
-        print("\r\n this shows the data ends up being nested dictionaries.  further parsing/looping is needed")
+        print(transpilers.VectorBTTranspiler.convert_to_string(data))
         
 
 #TODO arg parser for inputs: input file, output file, output mode
