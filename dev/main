@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Usage: ./dev/main lib/human.py
+# - runs lib.human's main() function (so you don't have to use the official entry points; useful for lib development)
+# - uses nodemon (`npm install -g nodemon`) as filewatcher, so re-runs when you save
+# - passes through any extra args, in case you're developing an argparse script
+
+module=`echo $1 | sed "s@/@.@g" | sed "s@.py@@g"`
+shift 1
+echo $module
+
+nodemon -e py -x "python3 -c 'from $module import main;main()' $@"
