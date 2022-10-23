@@ -118,7 +118,7 @@ def get_ticker_of_asset_node(node) -> str:
 @dataclass
 class NodeBranchState:
     weight: float  # do not read this on :wt-* nodes, behavior not guaranteed
-    branch_path_ids: list[str]
+    branch_path_ids: typing.List[str]
     node_type: str
 
 
