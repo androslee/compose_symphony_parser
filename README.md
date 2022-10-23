@@ -33,6 +33,9 @@ python3 parser.py -i infile
 python3 ./parser.py -m human -u -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -p
   prints a human formatted output, download the json formatted edn_encoded symphony directly from composer, AND all symphony parents, printing them directly to the screen
 
+python3 ./parser.py -m human -p -u -b -i inputs/bulk_symphonies.txt 
+ prints a human formatted output, download the json formatted edn_encoded symphony directly from composer, all symphony parents, printing them directly to the screen, AND reads the text file which contains a list of urls which it bulk reads from.  can be urls or a list of local file paths for json encoded edn files.
+
 infile: the file that contains the text encoded symphony 
 
 	you can now use the -u option when specifying an infile. This will cause it to treat the infile as a symphony url and it will then pull the data down from composer. 
