@@ -59,3 +59,8 @@ it's the EDN-format!!!
 https://github.com/edn-format/edn
 
 
+TODO:
+- compare changes from parent/child
+	- difflib.unified_diff
+	- print said/show changes
+- add line numbers to printed symphonys for easier discussion
