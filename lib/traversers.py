@@ -1,7 +1,8 @@
+import typing
 from . import logic
 
 
-def collect_allocateable_assets(node) -> set[str]:
+def collect_allocateable_assets(node) -> typing.Set[str]:
     s = set()
     if logic.is_asset_node(node):
         s.add(logic.get_ticker_of_asset_node(node))
@@ -12,7 +13,7 @@ def collect_allocateable_assets(node) -> set[str]:
     return s
 
 
-def collect_if_referenced_assets(node) -> set[str]:
+def collect_if_referenced_assets(node) -> typing.Set[str]:
     """
     Collects tickers referenced by if-conditions
     """
@@ -30,14 +31,14 @@ def collect_if_referenced_assets(node) -> set[str]:
     return s
 
 
-def collect_referenced_assets(node) -> set[str]:
+def collect_referenced_assets(node) -> typing.Set[str]:
     s = set()
     s.update(collect_if_referenced_assets(node))
     s.update(collect_allocateable_assets(node))
     return s
 
 
-def collect_indicators(node) -> set[str]:
+def collect_indicators(node) -> typing.Set[str]:
     """
     Collects tickers referenced by if-conditions
     """
