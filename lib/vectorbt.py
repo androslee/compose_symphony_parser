@@ -81,12 +81,15 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
         return
     elif logic.is_asset_node(node):
         indented_print(
-            f"allocations['{logic.get_ticker_of_asset_node(node)}'][day] = {current_node_branch_state.weight}")
-        indented_print(
             f"branch_tracker['{current_node_branch_state.branch_path_ids[-1]}'][day] = 1")
+        indented_print(
+            f"allocations['{logic.get_ticker_of_asset_node(node)}'][day] = {current_node_branch_state.weight}")
     elif logic.is_group_node(node):
         indented_print(f"# {node[':name']}")
     elif logic.is_filter_node(node):
+        indented_print(
+            f"branch_tracker['{current_node_branch_state.branch_path_ids[-1]}'][day] = 1")
+
         indented_print(f"for _sort_value, ticker in sorted([")
         for filter_indicator in traversers.extract_filter_indicators(node):
             fmt = extract_indicator_key_from_indicator(filter_indicator)
@@ -95,9 +98,9 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
         indented_print(
             f"], reverse={node[':select-fn'] == ':top'})[{int(node[':select-n'])}:]:  # {node[':select-fn']} {int(node[':select-n'])}")
         indented_print(
-            f"allocations[ticker][day] = {current_node_branch_state.weight / int(node[':select-n'])}", indent_offset=1)
-        indented_print(
-            f"branch_tracker['{current_node_branch_state.branch_path_ids[-1]}'][day] = 1")
+            # The "/int(node[':select-n'])" logic is already applied in current_node_branch_state.weight
+            f"allocations[ticker][day] = {current_node_branch_state.weight}", indent_offset=1)
+
         return
 
     for child_node in logic.get_node_children(node):
@@ -209,6 +212,7 @@ allocations.fillna(0, inplace=True)
 
 def main():
     path = 'inputs/tqqq_long_term.edn'
+    path = 'inputs/betaballer-modified.edn'
     # path = 'inputs/simple.edn'
     root_node = manual_testing.get_root_node_from_path(path)
 
