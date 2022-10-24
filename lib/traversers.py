@@ -40,6 +40,35 @@ def collect_referenced_assets(node) -> typing.Set[str]:
     return s
 
 
+def extract_lhs_indicator(node):
+    return {
+        "fn": node[":lhs-fn"],
+        "val": node[":lhs-val"],
+        "window-days": int(node.get(":lhs-window-days", 0)),
+    }
+
+
+def extract_rhs_indicator(node) -> typing.Optional[dict]:
+    if node.get(':rhs-fixed-value?', False):
+        return
+    return {
+        "fn": node[":rhs-fn"],
+        "val": node[":rhs-val"],
+        "window-days": int(node[":rhs-window-days"]),
+    }
+
+
+def extract_filter_indicators(node) -> typing.List[dict]:
+    indicators = []
+    for ticker in [logic.get_ticker_of_asset_node(child) for child in logic.get_node_children(node)]:
+        indicators.append({
+            "fn": node[":sort-by-fn"],
+            "val": ticker,
+            "window-days": int(node[":sort-by-window-days"]),
+        })
+    return indicators
+
+
 def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]:
     """
     Collects indicators referenced
@@ -56,36 +85,31 @@ def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]
 
     indicators = []
     if logic.is_conditional_node(node):
-        indicators.append({
+        indicator = extract_lhs_indicator(node)
+        indicator.update({
             "source": ":if-child lhs",
-            "fn": node[":lhs-fn"],
-            "val": node[":lhs-val"],
-            "window-days": int(node.get(":lhs-window-days", 0)),
-
             "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
             "weight": current_node_branch_state.weight,
         })
-        if not node.get(':rhs-fixed-value?', False):
-            indicators.append({
+        indicators.append(indicator)
+
+        indicator = extract_rhs_indicator(node)
+        if indicator:
+            indicator.update({
                 "source": ":if-child rhs",
-                "fn": node[":rhs-fn"],
-                "val": node[":rhs-val"],
-                "window-days": int(node[":rhs-window-days"]),
-
                 "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
                 "weight": current_node_branch_state.weight,
             })
+            indicators.append(indicator)
+
     if logic.is_filter_node(node):
-        for ticker in [logic.get_ticker_of_asset_node(child) for child in logic.get_node_children(node)]:
-            indicators.append({
+        for indicator in extract_filter_indicators(node):
+            indicator.update({
                 "source": ":filter sort-by",
-                "fn": node[":sort-by-fn"],
-                "val": ticker,
-                "window-days": int(node[":sort-by-window-days"]),
-
                 "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
                 "weight": current_node_branch_state.weight,
             })
+            indicators.append(indicator)
 
     for child in logic.get_node_children(node):
         indicators.extend(collect_indicators(
@@ -171,20 +195,20 @@ def collect_condition_strings_by_id(node, parent_node=None, parent_node_branch_s
     return condition_strings_by_id
 
 
-def collect_branches(root_node) -> typing.List[str]:
+def collect_branches(root_node) -> typing.Mapping[str, str]:
     """
     Returns human-readable expressions of all the logic involved to get to an :asset node.
     """
     branch_paths = collect_terminal_branch_paths(root_node)
     condition_strings_by_id = collect_condition_strings_by_id(root_node)
 
-    branches = []
+    branches_by_path = {}
     for branch_path in branch_paths:
         conditional_ids = branch_path.split("/")
         condition_strings = [condition_strings_by_id[condition_id]
                              for condition_id in conditional_ids]
-        branches.append(" AND ".join(condition_strings))
-    return branches
+        branches_by_path[branch_path] = " AND ".join(condition_strings)
+    return branches_by_path
 
 
 # TODO: collect parameters we might optimize
@@ -199,7 +223,7 @@ def main():
     root_node = manual_testing.get_root_node_from_path(path)
 
     print("All branches:")
-    for branch in collect_branches(root_node):
-        print("  " + branch)
+    for branch_path, branch_str in collect_branches(root_node).items():
+        print("  " + branch_str)
 
     # print(human.convert_to_pretty_format(root_node))
