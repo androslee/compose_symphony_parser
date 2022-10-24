@@ -1,5 +1,7 @@
+import copy
 import typing
-from . import logic
+
+from . import logic, human, manual_testing
 
 
 def collect_allocateable_assets(node) -> typing.Set[str]:
@@ -38,27 +40,166 @@ def collect_referenced_assets(node) -> typing.Set[str]:
     return s
 
 
-def collect_indicators(node) -> typing.Set[str]:
+def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]:
     """
-    Collects tickers referenced by if-conditions
+    Collects indicators referenced
     """
-    indicators = set()
+
+    if not parent_node_branch_state:
+        # current node is :root, there is no higher node
+        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+    parent_node_branch_state = typing.cast(
+        logic.NodeBranchState, parent_node_branch_state)
+
+    current_node_branch_state = logic.advance_branch_state(
+        parent_node_branch_state, node)
+
+    indicators = []
     if logic.is_conditional_node(node):
-        indicators.add({
+        indicators.append({
+            "source": ":if-child lhs",
             "fn": node[":lhs-fn"],
             "val": node[":lhs-val"],
-            "window-days": node[":lhs-window-days"],
+            "window-days": int(node.get(":lhs-window-days", 0)),
+
+            "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
+            "weight": current_node_branch_state.weight,
         })
+        if not node.get(':rhs-fixed-value?', False):
+            indicators.append({
+                "source": ":if-child rhs",
+                "fn": node[":rhs-fn"],
+                "val": node[":rhs-val"],
+                "window-days": int(node[":rhs-window-days"]),
+
+                "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
+                "weight": current_node_branch_state.weight,
+            })
+    if logic.is_filter_node(node):
+        for ticker in [logic.get_ticker_of_asset_node(child) for child in logic.get_node_children(node)]:
+            indicators.append({
+                "source": ":filter sort-by",
+                "fn": node[":sort-by-fn"],
+                "val": ticker,
+                "window-days": int(node[":sort-by-window-days"]),
+
+                "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
+                "weight": current_node_branch_state.weight,
+            })
 
     for child in logic.get_node_children(node):
-        indicators.update(collect_indicators(child))
+        indicators.extend(collect_indicators(
+            child, parent_node_branch_state=current_node_branch_state))
     return indicators
+
+
+def collect_conditions(node) -> typing.List[dict]:
+    """
+    Collects :if-child conditions used
+    """
+
+    conditions = []
+    if logic.is_conditional_node(node):
+        copy_node = copy.deepcopy(node)
+        del copy_node[":children"]
+        del copy_node[":step"]
+        copy_node["pretty_text"] = human.pretty_condition(node)
+        conditions.append(copy_node)
+
+    for child in logic.get_node_children(node):
+        conditions.extend(collect_conditions(child))
+    return conditions
+
+
+def collect_terminal_branch_paths(node, parent_node_branch_state: typing.Optional[logic.NodeBranchState] = None) -> typing.Set[str]:
+    if not parent_node_branch_state:
+        # current node is :root, there is no higher node
+        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+    parent_node_branch_state = typing.cast(
+        logic.NodeBranchState, parent_node_branch_state)
+
+    current_node_branch_state = logic.advance_branch_state(
+        parent_node_branch_state, node)
+
+    branch_paths = set()
+    if logic.is_asset_node(node):
+        branch_paths.add("/".join(current_node_branch_state.branch_path_ids))
+
+    for child in logic.get_node_children(node):
+        branch_paths.update(collect_terminal_branch_paths(
+            child, parent_node_branch_state=current_node_branch_state))
+
+    return branch_paths
+
+
+def collect_condition_strings_by_id(node, parent_node=None, parent_node_branch_state: typing.Optional[logic.NodeBranchState] = None) -> typing.Mapping[str, str]:
+    """
+    Collects all conditional logics of each path leading out of an :if and :if-child block (including 'else' logic and earlier 'if's)
+    """
+
+    if not parent_node_branch_state:
+        # current node is :root, there is no higher node
+        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+    parent_node_branch_state = typing.cast(
+        logic.NodeBranchState, parent_node_branch_state)
+
+    current_node_branch_state = logic.advance_branch_state(
+        parent_node_branch_state, node)
+
+    condition_strings_by_id = {}
+    if logic.is_if_child_node(node):
+        siblings = logic.get_node_children(parent_node)
+        current_index, _ = next(filter(
+            lambda index_sibling_node_tuple: index_sibling_node_tuple[1][":id"] == node[":id"], enumerate(siblings)))
+        older_siblings = siblings[:current_index]
+
+        condition_string_sibling_aware = ""
+        if older_siblings:
+            condition_string_sibling_aware += " and ".join(
+                ["(not " + human.pretty_condition(s) + ")" for s in older_siblings])
+        if logic.is_conditional_node(node) and older_siblings:
+            condition_string_sibling_aware += " and "
+        if logic.is_conditional_node(node):
+            condition_string_sibling_aware += human.pretty_condition(node)
+
+        condition_strings_by_id[node[":id"]] = condition_string_sibling_aware
+
+    for child in logic.get_node_children(node):
+        child_condition_strings_by_id = collect_condition_strings_by_id(
+            child, parent_node=node, parent_node_branch_state=current_node_branch_state)
+        condition_strings_by_id.update(child_condition_strings_by_id)
+    return condition_strings_by_id
+
+
+def collect_branches(root_node) -> typing.List[str]:
+    """
+    Returns human-readable expressions of all the logic involved to get to an :asset node.
+    """
+    branch_paths = collect_terminal_branch_paths(root_node)
+    condition_strings_by_id = collect_condition_strings_by_id(root_node)
+
+    branches = []
+    for branch_path in branch_paths:
+        conditional_ids = branch_path.split("/")
+        condition_strings = [condition_strings_by_id[condition_id]
+                             for condition_id in conditional_ids]
+        branches.append(" AND ".join(condition_strings))
+    return branches
+
 
 # TODO: collect parameters we might optimize
 # - periods
 # - if :rhs-fixed-value, then :rhs-val
 # - stuff in :filter
 
-# TODO: find unexpected attributes (future-proofing)
-# TODO: collect all conditions from branch paths
-# TODO: collect all indicators (for precomputing)
+
+def main():
+    path = 'inputs/tqqq_long_term.edn'
+    path = 'inputs/simple.edn'
+    root_node = manual_testing.get_root_node_from_path(path)
+
+    print("All branches:")
+    for branch in collect_branches(root_node):
+        print("  " + branch)
+
+    # print(human.convert_to_pretty_format(root_node))
