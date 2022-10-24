@@ -92,9 +92,8 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
             fmt = extract_indicator_key_from_indicator(filter_indicator)
             indented_print(
                 f"(indicators['{fmt}'][day], '{filter_indicator['val']}'),", indent_offset=1)
-        # TODO: check that the sort order is correct
         indented_print(
-            f"], reverse={node[':select-fn'] == ':bottom'})[{int(node[':select-n'])}:]:")
+            f"], reverse={node[':select-fn'] == ':top'})[{int(node[':select-n'])}:]:  # {node[':select-fn']} {int(node[':select-n'])}")
         indented_print(
             f"allocations[ticker][day] = {current_node_branch_state.weight / int(node[':select-n'])}", indent_offset=1)
         indented_print(
