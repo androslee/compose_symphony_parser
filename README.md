@@ -1,21 +1,21 @@
 # compose_symphony_parser
 a text parser that will attempt to export a text encoded composer symphony, to whatever text endpoint you want
 
+- [x] human readable output
+- [ ] vectorbt (WIP)
+- [ ] quantconnect
+- [ ] tradingview
+- [ ] thinkscript
 
-REQUIREMENTS
-needs python3
-pip3 install edn_format
-pip3 install requests
+# Requirements
 
+Use python3.
 
+```bash
+pip3 install -r requirements.txt
+```
 
-- human readable output
-- quantconnect
-- vectorbt
-- tradingview
-- thinkscript
-
-usages:
+# Usage
 
 python3 parser.py -i infile -o outfile -m quantconnect
 	saves quantconnect parsed output to "outfile"
@@ -62,7 +62,7 @@ it's the EDN-format!!!
 https://github.com/edn-format/edn
 
 
-TODO:
+# TODO:
 - compare changes from parent/child
 	- difflib.unified_diff
 	- print said/show changes
