@@ -91,15 +91,14 @@ def get_rhs_ticker(node) -> typing.Optional[str]:
 
 
 class ComposerIndicatorFunction:
-    # TODO: fill in missing symbols
     CURRENT_PRICE = ":current-price"
     CUMULATIVE_RETURN = ":cumulative-return"
-    # STANDARD_DEVIATION_PRICE = ":todo"
-    # STANDARD_DEVIATION_RETURNS = ":todo"
-    # MAX_DRAWDOWN = ":todo"
+    STANDARD_DEVIATION_PRICE = ":standard-deviation-price"
+    STANDARD_DEVIATION_RETURNS = ":standard-deviation-return"
+    MAX_DRAWDOWN = ":max-drawdown"
     MOVING_AVERAGE_PRICE = ":moving-average-price"
-    # MOVING_AVERAGE_RETURNS = ":todo"
-    # EMA_PRICE = ":todo"
+    MOVING_AVERAGE_RETURNS = ":moving-average-return"
+    EMA_PRICE = ":exponential-moving-average-price"
     RSI = ":relative-strength-index"
 
 
