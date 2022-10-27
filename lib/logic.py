@@ -36,6 +36,12 @@ is_if_child_node = build_basic_node_type_checker(":if-child")
 
 is_equal_weight_node = build_basic_node_type_checker(":wt-cash-equal")
 is_specified_weight_node = build_basic_node_type_checker(":wt-cash-specified")
+# TODO: implement inverse volatility children (can only be :asset)
+# - "Inverse proportion to volatility of returns" is 1/close.pct_change().stddev() then normalizing to sum to 1.
+# - (max is 1)
+# TODO: weight by market cap (children can only be :asset, and then not ETFs)
+# - it's included (statically) in :asset, but that might introduce future bias. Should be dynamic.
+# - (max is 1)
 
 
 def is_weight_node(node):
@@ -85,15 +91,14 @@ def get_rhs_ticker(node) -> typing.Optional[str]:
 
 
 class ComposerIndicatorFunction:
-    # TODO: fill in missing symbols
     CURRENT_PRICE = ":current-price"
     CUMULATIVE_RETURN = ":cumulative-return"
-    # STANDARD_DEVIATION_PRICE = ":todo"
-    # STANDARD_DEVIATION_RETURNS = ":todo"
-    # MAX_DRAWDOWN = ":todo"
+    STANDARD_DEVIATION_PRICE = ":standard-deviation-price"
+    STANDARD_DEVIATION_RETURNS = ":standard-deviation-return"
+    MAX_DRAWDOWN = ":max-drawdown"
     MOVING_AVERAGE_PRICE = ":moving-average-price"
-    # MOVING_AVERAGE_RETURNS = ":todo"
-    # EMA_PRICE = ":todo"
+    MOVING_AVERAGE_RETURNS = ":moving-average-return"
+    EMA_PRICE = ":exponential-moving-average-price"
     RSI = ":relative-strength-index"
 
 

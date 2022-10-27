@@ -23,6 +23,16 @@ def pretty_fn(fn_string: str) -> str:
         return "CumulativeReturn"
     if fn_string == logic.ComposerIndicatorFunction.MOVING_AVERAGE_PRICE:
         return "SMA"
+    if fn_string == logic.ComposerIndicatorFunction.EMA_PRICE:
+        return "EMA"
+    if fn_string == logic.ComposerIndicatorFunction.STANDARD_DEVIATION_PRICE:
+        return "STDEV"
+    if fn_string == logic.ComposerIndicatorFunction.STANDARD_DEVIATION_RETURNS:
+        return "STDEVReturns"
+    if fn_string == logic.ComposerIndicatorFunction.MAX_DRAWDOWN:
+        return "MaxDrawdown"
+    if fn_string == logic.ComposerIndicatorFunction.MOVING_AVERAGE_RETURNS:
+        return "SMAReturns"
     print(f"UNEXPECTED function {fn_string}")
     return fn_string
 
