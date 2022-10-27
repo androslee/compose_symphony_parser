@@ -93,7 +93,7 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
             indented_print(
                 f"(indicators.at[row, '{fmt}'], '{filter_indicator['val']}'),", indent_offset=1)
         indented_print(
-            f"], reverse={node[':select-fn'] == ':top'})[{int(node[':select-n'])}:]:  # {node[':select-fn']} {int(node[':select-n'])}")
+            f"], reverse={node[':select-fn'] != ':top'})[{int(node[':select-n'])}:]:  # {node[':select-fn']} {int(node[':select-n'])}")
         indented_print(
             # The "/int(node[':select-n'])" logic is already applied in current_node_branch_state.weight
             f"allocations.at[row, ticker] += {current_node_branch_state.weight}", indent_offset=1)
