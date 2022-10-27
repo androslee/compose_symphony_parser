@@ -24,11 +24,8 @@ def express_comparator_in_python(comparator_string: str) -> str:
 
 
 def get_code_to_reference_indicator(indicator) -> str:
-    if indicator['fn'] == logic.ComposerIndicatorFunction.CURRENT_PRICE:
-        return f"closes.at[row, '{indicator['val']}']"
-    else:
-        key = extract_indicator_key_from_indicator(indicator)
-        return f"indicators.at[row, '{key}']"
+    key = extract_indicator_key_from_indicator(indicator)
+    return f"indicators.at[row, '{key}']"
 
 
 def express_condition(child_node) -> str:
@@ -120,20 +117,12 @@ def _convert_to_vectorbt(root_node, file=None):
     def write(*msgs):
         print(*msgs, file=file)
 
-    all_tickers = traversers.collect_referenced_assets(root_node)
-    allocateable_tickers = traversers.collect_allocateable_assets(root_node)
-    indicators = traversers.collect_indicators(root_node)
-
     write(f"""
 
 def build_allocations_matrix(closes):
     indicators = pd.DataFrame(index=closes.index)
 """)
     for indicator in traversers.collect_indicators(root_node):
-        if indicator['fn'] == logic.ComposerIndicatorFunction.CURRENT_PRICE:
-            # nothing to precompute; just reference `closes`
-            continue
-
         write(
             f"    indicators['{extract_indicator_key_from_indicator(indicator)}'] = precompute_indicator(closes['{indicator['val']}'], '{indicator['fn']}', {indicator['window-days']})")
     write("""
