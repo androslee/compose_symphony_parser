@@ -1,10 +1,35 @@
+import json
 import os
+import pickle
 import typing
 import yfinance
 import pandas as pd
 import pandas_ta
+import requests
+import edn_format
 
-from lib import manual_testing, traversers, transpilers
+from lib import edn_syntax, logic, traversers, transpilers
+
+
+import datetime
+from zoneinfo import ZoneInfo
+
+
+UTC_TIMEZONE = ZoneInfo("UTC")
+
+
+def epoch_days_to_date(days: int) -> datetime.date:
+    # if your offset is negative, this will fix the off-by-one error
+    # if your offset is positive, you'll never know this problem even exists
+    return datetime.datetime.fromtimestamp(days * 24 * 60 * 60, tz=UTC_TIMEZONE).date()
+
+
+def date_to_epoch_days(day: datetime.date) -> int:
+    return int(datetime.datetime.combine(day, datetime.time(
+        0, 0), tzinfo=UTC_TIMEZONE).timestamp() / 60 / 60 / 24)
+
+
+assert epoch_days_to_date(19289) == datetime.date(2022, 10, 24)
 
 
 def get_backtest_data(tickers: typing.Set[str]) -> pd.DataFrame:
@@ -50,26 +75,102 @@ def get_backtest_data(tickers: typing.Set[str]) -> pd.DataFrame:
 
 def precompute_indicator(close_series: pd.Series, indicator: str, window_days: int):
     close = close_series.dropna()
-    if indicator == ':cumulative-return':
-        return pandas_ta.percent_return(close, length=window_days, cumulative=True)
-    elif indicator == ':moving-average-price':
+    if indicator == logic.ComposerIndicatorFunction.CUMULATIVE_RETURN:
+        # because comparisons will be to whole numbers
+        return close.pct_change(window_days) * 100
+    elif indicator == logic.ComposerIndicatorFunction.MOVING_AVERAGE_PRICE:
         return pandas_ta.sma(close, window_days)
-    elif indicator == ':relative-strength-index':
+    elif indicator == logic.ComposerIndicatorFunction.RSI:
         return pandas_ta.rsi(close, window_days)
-    # STANDARD_DEVIATION_PRICE = ":todo"  # pandas_ta.stdev
-    # STANDARD_DEVIATION_RETURNS = ":todo"  # (guessing) pandas_ta.stdev(closes.pct_change(), window_days)
-    # MAX_DRAWDOWN = ":todo"  # pandas_ta.max_drawdown
-    # MOVING_AVERAGE_RETURNS = ":todo"  # pandas_ta.percent_return(length=5)
-    # EMA_PRICE = ":todo" # pandas_ta.ema
-
+    elif indicator == logic.ComposerIndicatorFunction.EMA_PRICE:
+        return pandas_ta.ema(close, window_days)
+    elif indicator == logic.ComposerIndicatorFunction.CURRENT_PRICE:
+        return close_series
+    elif indicator == logic.ComposerIndicatorFunction.STANDARD_DEVIATION_PRICE:
+        return pandas_ta.stdev(close, window_days)
+    elif indicator == logic.ComposerIndicatorFunction.STANDARD_DEVIATION_RETURNS:
+        return pandas_ta.stdev(close.pct_change() * 100, window_days)
+    elif indicator == logic.ComposerIndicatorFunction.MAX_DRAWDOWN:
+        # this seems pretty close
+        maxes = close.rolling(window_days, min_periods=1).max()
+        downdraws = (close/maxes) - 1.0
+        return downdraws.rolling(window_days, min_periods=1).min() * -100
+    elif indicator == logic.ComposerIndicatorFunction.MOVING_AVERAGE_RETURNS:
+        return close.pct_change().rolling(window_days).mean() * 100
     else:
         raise NotImplementedError(
             "Have not implemented indicator " + indicator)
 
 
+def get_symphony(symphony_id: str) -> dict:
+
+    # caching
+    path = f"inputs/symphony-{symphony_id}.json"
+    if os.path.exists(path):
+        return json.load(open(path, 'r'))
+
+    composerConfig = {
+        "projectId": "leverheads-278521",
+        "databaseName": "(default)"
+    }
+    print(f"Fetching symphony {symphony_id} from Composer")
+    response = requests.get(
+        f'https://firestore.googleapis.com/v1/projects/{composerConfig["projectId"]}/databases/{composerConfig["databaseName"]}/documents/symphony/{symphony_id}')
+    response.raise_for_status()
+
+    response_json = response.json()
+
+    json.dump(response_json, open(path, 'w'))
+
+    return response_json
+
+
+def extract_root_node_from_symphony_response(response: dict) -> dict:
+    return typing.cast(dict, edn_syntax.convert_edn_to_pythonic(
+        edn_format.loads(response['fields']['latest_version_edn']['stringValue'])))
+
+
+def get_composer_backtest_results(symphony_id: str, start_date: datetime.date) -> dict:
+    epoch_days = date_to_epoch_days(start_date)
+    utc_today = datetime.datetime.now().astimezone(UTC_TIMEZONE).date()
+
+    path = f'data/backtest-result-{symphony_id}-{epoch_days}-{date_to_epoch_days(utc_today)}.pickle'
+    if os.path.exists(path):
+        return pickle.load(open(path, 'rb'))
+
+    payload = "{:uid nil, :start-date-in-epoch-days START_DATE_EPOCH_DAYS, :capital 10000, :apply-taf-fee? true, :symphony-benchmarks [], :slippage-percent 0.0005, :apply-reg-fee? true, :symphony \"SYMPHONY_ID_GOES_HERE\", :ticker-benchmarks [{:color \"#F6609F\", :id \"SPY\", :type :ticker, :checked? true, :ticker \"SPY\"}]}"
+    payload = payload.replace("SYMPHONY_ID_GOES_HERE", symphony_id)
+    payload = payload.replace("START_DATE_EPOCH_DAYS", str(epoch_days))
+
+    print(
+        f"Fetching backtest results for {symphony_id} from {start_date} to {utc_today}...")
+    response = requests.post(
+        "https://backtest.composer.trade/v2/backtest",
+        json=payload)
+    response.raise_for_status()
+    backtest_result = edn_syntax.convert_edn_to_pythonic(
+        edn_format.loads(response.text))
+
+    pickle.dump(backtest_result, open(path, 'wb'))
+
+    return typing.cast(dict, backtest_result)
+
+
+def extract_allocations_from_composer_backtest_result(backtest_result: dict) -> pd.DataFrame:
+    composer_allocations = pd.DataFrame(
+        backtest_result[':tdvm-weights']).fillna(0).round(4)
+    composer_allocations.index = pd.DatetimeIndex(
+        [epoch_days_to_date(i) for i in composer_allocations.index])
+    composer_allocations.sort_index(inplace=True)
+    return composer_allocations.round(4)
+
+
 def main():
-    root_node = manual_testing.get_root_node_from_path(
-        'inputs/tqqq_long_term.edn')
+    symphony_id = "2XE43Kcoqa0uLSOBuN3q"
+    # symphony_id = "lKCaoxe0R24mOXJGeusi"
+
+    symphony = get_symphony(symphony_id)
+    root_node = extract_root_node_from_symphony_response(symphony)
 
     tickers = traversers.collect_referenced_assets(root_node)
     allocateable_tickers = traversers.collect_allocateable_assets(root_node)
@@ -99,12 +200,23 @@ def main():
     for reference_only_ticker in [c for c in allocations.columns if c not in allocateable_tickers]:
         del allocations[reference_only_ticker]
 
+    allocations_possible_start = closes.dropna().index.min().date()
+    # truncate until allocations possible (branch_tracker is not truncated)
+    allocations = allocations[allocations.index.date >
+                              allocations_possible_start]
+
     #
     # Reporting
     #
-    backtest_days_count = len(branch_tracker)
-    backtest_start, backtest_end = branch_tracker.index.min(), branch_tracker.index.max()
+    logic_start = branch_tracker.index.min().date()
 
+    backtest_days_count = len(allocations.index)
+    backtest_start = allocations_possible_start
+    backtest_end = allocations.index.max().date()
+
+    print(
+        f"Logic can execute from {logic_start} ({len(branch_tracker.index)})")
+    print(f"Allocations can start  {allocations_possible_start}")
     print(f"Start: {backtest_start}")
     print(f"End: {backtest_end} ({backtest_days_count} trading days)")
     print()
@@ -140,3 +252,14 @@ def main():
     for branch_id in branch_enablement.index:
         print(f"{branch_enablement[branch_id]:>5.1%} ({branch_enablement[branch_id] * backtest_days_count:>4.0f} of {backtest_days_count})",
               branches_by_leaf_node_id[branch_id])
+
+    #
+    # Compare to Composer's allocations
+    #
+    backtest_result = get_composer_backtest_results(
+        symphony_id, backtest_start)
+    composer_allocations = extract_allocations_from_composer_backtest_result(
+        backtest_result)
+
+    print(composer_allocations)
+    print(allocations)
