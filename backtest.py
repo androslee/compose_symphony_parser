@@ -107,7 +107,7 @@ def precompute_indicator(close_series: pd.Series, indicator: str, window_days: i
 def get_symphony(symphony_id: str) -> dict:
 
     # caching
-    path = f"inputs/symphony-{symphony_id}.json"
+    path = f"data/symphony-{symphony_id}.json"
     if os.path.exists(path):
         return json.load(open(path, 'r'))
 
@@ -210,7 +210,7 @@ def main():
                               allocations_possible_start]
 
     #
-    # Reporting
+    # Allocation / Branch Reporting
     #
     logic_start = branch_tracker.index.min().date()
 
@@ -256,10 +256,13 @@ def main():
     for branch_id in branch_enablement.index:
         print(f"{branch_enablement[branch_id]:>5.1%} ({branch_enablement[branch_id] * backtest_days_count:>4.0f} of {backtest_days_count})",
               branches_by_leaf_node_id[branch_id])
+    print()
+    print()
 
     #
     # Compare to Composer's allocations
     #
+    # TODO: why is Composer giving 500 errors?
     # backtest_result = get_composer_backtest_results(
     #     symphony_id, backtest_start)
     # composer_allocations = extract_allocations_from_composer_backtest_result(
@@ -286,7 +289,11 @@ def main():
         # TODO: work out Alpaca fees
         fees=0,
     )
-
     returns = portfolio.asset_value().pct_change().dropna()
+
+    #
+    # Quantstats Report
+    #
+    filepath = "data/output.html"
     quantstats.reports.html(
-        returns, closes['SPY'].pct_change().dropna(), title=f"{symphony_name}", output="./output.html")
+        returns, closes[benchmark_ticker].pct_change().dropna(), title=f"{symphony_name}", output=filepath, download_filename=filepath)
