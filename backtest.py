@@ -8,6 +8,7 @@ import pandas_ta
 import requests
 import edn_format
 import vectorbt as vbt
+import quantstats
 
 from lib import edn_syntax, logic, traversers, transpilers
 
@@ -171,6 +172,7 @@ def main():
     # symphony_id = "lKCaoxe0R24mOXJGeusi"
 
     symphony = get_symphony(symphony_id)
+    symphony_name = symphony['fields']['name']['stringValue']
     root_node = extract_root_node_from_symphony_response(symphony)
 
     tickers = traversers.collect_referenced_assets(root_node)
@@ -264,7 +266,7 @@ def main():
     #     backtest_result)
 
     # print(composer_allocations)
-    print(allocations)
+    # print(allocations)
 
     #
     # VectorBT
@@ -285,4 +287,6 @@ def main():
         fees=0,
     )
 
-    print(portfolio.asset_value().pct_change().dropna())
+    returns = portfolio.asset_value().pct_change().dropna()
+    quantstats.reports.html(
+        returns, closes['SPY'].pct_change().dropna(), title=f"{symphony_name}", output="./output.html")
