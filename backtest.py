@@ -168,8 +168,7 @@ def extract_allocations_from_composer_backtest_result(backtest_result: dict) -> 
 
 
 def main():
-    # https://app.composer.trade/symphony/riISsuHb8Xz1lB9Ep46o/details
-    symphony_id = "riISsuHb8Xz1lB9Ep46o"
+    symphony_id = "2XE43Kcoqa0uLSOBuN3q"
 
     symphony = get_symphony(symphony_id)
     symphony_name = symphony['fields']['name']['stringValue']
