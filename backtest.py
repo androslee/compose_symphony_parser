@@ -107,6 +107,8 @@ def precompute_indicator(close_series: pd.Series, indicator: str, window_days: i
 def get_symphony(symphony_id: str) -> dict:
 
     # caching
+    if not os.path.exists("data"):
+        os.mkdir("data")
     path = f"data/symphony-{symphony_id}.json"
     if os.path.exists(path):
         return json.load(open(path, 'r'))
