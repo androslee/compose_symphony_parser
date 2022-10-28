@@ -7,6 +7,7 @@ import pandas as pd
 import pandas_ta
 import requests
 import edn_format
+import vectorbt as vbt
 
 from lib import edn_syntax, logic, traversers, transpilers
 
@@ -181,7 +182,8 @@ def main():
     #
     # Get Data
     #
-    closes = get_backtest_data(tickers)
+    benchmark_ticker = "SPY"
+    closes = get_backtest_data(tickers.union([benchmark_ticker]))
 
     #
     # Execute Logic
@@ -211,12 +213,12 @@ def main():
     logic_start = branch_tracker.index.min().date()
 
     backtest_days_count = len(allocations.index)
-    backtest_start = allocations_possible_start
+    backtest_start = allocations.dropna().index.min().date()
     backtest_end = allocations.index.max().date()
 
     print(
         f"Logic can execute from {logic_start} ({len(branch_tracker.index)})")
-    print(f"Allocations can start  {allocations_possible_start}")
+    print(f"Allocations can start {allocations_possible_start}")
     print(f"Start: {backtest_start}")
     print(f"End: {backtest_end} ({backtest_days_count} trading days)")
     print()
@@ -256,10 +258,31 @@ def main():
     #
     # Compare to Composer's allocations
     #
-    backtest_result = get_composer_backtest_results(
-        symphony_id, backtest_start)
-    composer_allocations = extract_allocations_from_composer_backtest_result(
-        backtest_result)
+    # backtest_result = get_composer_backtest_results(
+    #     symphony_id, backtest_start)
+    # composer_allocations = extract_allocations_from_composer_backtest_result(
+    #     backtest_result)
 
-    print(composer_allocations)
+    # print(composer_allocations)
     print(allocations)
+
+    #
+    # VectorBT
+    #
+    closes_aligned = closes[closes.index.date >=
+                            backtest_start].reindex_like(allocations)
+
+    portfolio = vbt.Portfolio.from_orders(
+        close=closes_aligned,
+        size=allocations,
+        size_type="targetpercent",
+        group_by=True,
+        cash_sharing=True,
+        call_seq="auto",
+        # TODO: rebalancing
+        freq='D',
+        # TODO: work out Alpaca fees
+        fees=0,
+    )
+
+    print(portfolio.asset_value().pct_change().dropna())
