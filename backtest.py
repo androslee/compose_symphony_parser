@@ -7,6 +7,8 @@ import pandas as pd
 import pandas_ta
 import requests
 import edn_format
+import vectorbt as vbt
+import quantstats
 
 from lib import edn_syntax, logic, traversers, transpilers
 
@@ -105,7 +107,7 @@ def precompute_indicator(close_series: pd.Series, indicator: str, window_days: i
 def get_symphony(symphony_id: str) -> dict:
 
     # caching
-    path = f"inputs/symphony-{symphony_id}.json"
+    path = f"data/symphony-{symphony_id}.json"
     if os.path.exists(path):
         return json.load(open(path, 'r'))
 
@@ -167,9 +169,9 @@ def extract_allocations_from_composer_backtest_result(backtest_result: dict) -> 
 
 def main():
     symphony_id = "2XE43Kcoqa0uLSOBuN3q"
-    # symphony_id = "lKCaoxe0R24mOXJGeusi"
 
     symphony = get_symphony(symphony_id)
+    symphony_name = symphony['fields']['name']['stringValue']
     root_node = extract_root_node_from_symphony_response(symphony)
 
     tickers = traversers.collect_referenced_assets(root_node)
@@ -181,7 +183,8 @@ def main():
     #
     # Get Data
     #
-    closes = get_backtest_data(tickers)
+    benchmark_ticker = "SPY"
+    closes = get_backtest_data(tickers.union([benchmark_ticker]))
 
     #
     # Execute Logic
@@ -206,17 +209,17 @@ def main():
                               allocations_possible_start]
 
     #
-    # Reporting
+    # Allocation / Branch Reporting
     #
     logic_start = branch_tracker.index.min().date()
 
     backtest_days_count = len(allocations.index)
-    backtest_start = allocations_possible_start
+    backtest_start = allocations.dropna().index.min().date()
     backtest_end = allocations.index.max().date()
 
     print(
         f"Logic can execute from {logic_start} ({len(branch_tracker.index)})")
-    print(f"Allocations can start  {allocations_possible_start}")
+    print(f"Allocations can start {allocations_possible_start}")
     print(f"Start: {backtest_start}")
     print(f"End: {backtest_end} ({backtest_days_count} trading days)")
     print()
@@ -252,14 +255,44 @@ def main():
     for branch_id in branch_enablement.index:
         print(f"{branch_enablement[branch_id]:>5.1%} ({branch_enablement[branch_id] * backtest_days_count:>4.0f} of {backtest_days_count})",
               branches_by_leaf_node_id[branch_id])
+    print()
+    print()
 
     #
     # Compare to Composer's allocations
     #
-    backtest_result = get_composer_backtest_results(
-        symphony_id, backtest_start)
-    composer_allocations = extract_allocations_from_composer_backtest_result(
-        backtest_result)
+    # TODO: why is Composer giving 500 errors?
+    # backtest_result = get_composer_backtest_results(
+    #     symphony_id, backtest_start)
+    # composer_allocations = extract_allocations_from_composer_backtest_result(
+    #     backtest_result)
 
-    print(composer_allocations)
-    print(allocations)
+    # print(composer_allocations)
+    # print(allocations)
+
+    #
+    # VectorBT
+    #
+    closes_aligned = closes[closes.index.date >=
+                            backtest_start].reindex_like(allocations)
+
+    portfolio = vbt.Portfolio.from_orders(
+        close=closes_aligned,
+        size=allocations,
+        size_type="targetpercent",
+        group_by=True,
+        cash_sharing=True,
+        call_seq="auto",
+        # TODO: rebalancing
+        freq='D',
+        # TODO: work out Alpaca fees
+        fees=0,
+    )
+    returns = portfolio.asset_value().pct_change().dropna()
+
+    #
+    # Quantstats Report
+    #
+    filepath = "data/output.html"
+    quantstats.reports.html(
+        returns, closes[benchmark_ticker].pct_change().dropna(), title=f"{symphony_name}", output=filepath, download_filename=filepath)
