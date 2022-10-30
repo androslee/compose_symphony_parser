@@ -6,6 +6,9 @@ import yfinance
 
 
 def get_backtest_data(tickers: typing.Set[str]) -> pd.DataFrame:
+    if not os.path.exists("data"):
+        os.mkdir("data")
+
     # TODO: make sure all data is adjusted to the same date
     # (if writing to disc on Jan 1 but today is Dec 1, that's 11mo where dividends and splits may have invalided everything)
 
