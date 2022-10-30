@@ -1,9 +1,7 @@
 import copy
 import typing
 
-from lib import symphony_object
-
-from . import logic, human, manual_testing
+from . import logic, human, symphony_object
 
 
 def collect_allocateable_assets(node) -> typing.Set[str]:
