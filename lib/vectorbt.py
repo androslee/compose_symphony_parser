@@ -106,6 +106,11 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
 
 
 def convert_to_vectorbt(root_node) -> str:
+    assert not traversers.collect_nodes_of_type(
+        ":wt-inverse-vol", root_node), "Inverse volatility weighting is not supported."
+    assert not traversers.collect_nodes_of_type(
+        ":wt-marketcap", root_node), "Market cap weighting is not supported."
+
     output = io.StringIO()
     _convert_to_vectorbt(root_node, file=output)
     text = output.getvalue()
