@@ -34,13 +34,11 @@ def date_to_epoch_days(day: datetime.date) -> int:
 assert epoch_days_to_date(19289) == datetime.date(2022, 10, 24)
 
 
-def get_backtest_data(tickers: typing.Set[str]) -> pd.DataFrame:
+def get_backtest_data(tickers: typing.Set[str], use_simulated_data: bool = False) -> pd.DataFrame:
     # TODO: make sure all data is adjusted to the same date
     # (if writing to disc on Jan 1 but today is Dec 1, that's 11mo where dividends and splits may have invalided everything)
 
     # TODO: if current time is during market hours, then exclude today (yfinance inconsistent about including it)
-
-    # TODO: use LETF synthesized data where possible
 
     tickers_to_fetch = []
     for ticker in tickers:
@@ -72,6 +70,21 @@ def get_backtest_data(tickers: typing.Set[str]) -> pd.DataFrame:
             main_dataframe = data
         else:
             main_dataframe = pd.concat([main_dataframe, data], axis=1)
+                    
+    if use_simulated_data:
+        simulated_data = pd.read_csv("data/simulated_data.csv", index_col=0, parse_dates=True)
+        reconstructed_columns = []
+        for ticker in main_dataframe.columns:
+            if ticker in simulated_data.columns:
+                combined_series = main_dataframe[ticker].combine_first(simulated_data[ticker])
+                reconstructed_columns.append(combined_series)
+            else:
+                reconstructed_columns.append(main_dataframe[ticker])
+
+        main_simulated_dataframe = pd.concat(reconstructed_columns, axis=1).astype("float64")
+        
+        return typing.cast(pd.DataFrame, main_simulated_dataframe)
+    
     return typing.cast(pd.DataFrame, main_dataframe)
 
 
@@ -170,7 +183,8 @@ def extract_allocations_from_composer_backtest_result(backtest_result: dict) -> 
 
 
 def main():
-    symphony_id = "2XE43Kcoqa0uLSOBuN3q"
+    symphony_id = "ENIv7HRFOYK5q7CW91NX"
+    use_simulated_data = False
 
     symphony = get_symphony(symphony_id)
     symphony_name = symphony['fields']['name']['stringValue']
@@ -186,7 +200,7 @@ def main():
     # Get Data
     #
     benchmark_ticker = "SPY"
-    closes = get_backtest_data(tickers.union([benchmark_ticker]))
+    closes = get_backtest_data(tickers.union([benchmark_ticker]), use_simulated_data=use_simulated_data)
 
     #
     # Execute Logic
