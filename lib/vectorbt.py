@@ -138,7 +138,7 @@ def build_allocations_matrix(closes):
     #
     # Algorithm Logic and instrumentation
     #
-    allocations = pd.DataFrame(index=indicators.index, columns=closes.columns).fillna(0)
+    allocations = pd.DataFrame(index=indicators.index, columns=closes.columns).fillna(0.0)
 
     # Track branch usage based on :id of "leaf" condition (closest :if-child up the tree to that leaf node)
     branch_tracker = pd.DataFrame(index=indicators.index, columns={repr(sorted(branches_by_leaf_node_id.keys()))}).fillna(0)
