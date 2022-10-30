@@ -1,16 +1,16 @@
 import datetime
 import time
-from zoneinfo import ZoneInfo
 import typing
 
 import requests
 import edn_format
 import pandas as pd
+import pytz
 
 from . import edn_syntax
 
 
-UTC_TIMEZONE = ZoneInfo("UTC")
+UTC_TIMEZONE = pytz.UTC
 
 
 def epoch_days_to_date(days: int) -> datetime.date:
