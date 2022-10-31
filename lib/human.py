@@ -97,7 +97,8 @@ def print_children(node, depth=0, parent_node_branch_state: typing.Optional[logi
     """
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -127,6 +128,9 @@ def print_children(node, depth=0, parent_node_branch_state: typing.Optional[logi
         # children will have :weight
         # ':weight': {':num': 88, ':den': 100}, (numerator and denominator)
         pretty_log("Weight accordingly:")
+    elif logic.is_weight_inverse_volatility_node(node):
+        pretty_log(
+            f"Weight inversely to {pretty_indicator(logic.ComposerIndicatorFunction.STANDARD_DEVIATION_RETURNS, '____', node[':window-days'])}")
     elif logic.is_if_node(node):
         pretty_log("if")
     elif logic.is_if_child_node(node):

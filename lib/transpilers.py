@@ -106,9 +106,10 @@ def main():
 
     assert len(allocations_aligned) == len(branch_tracker_aligned)
 
-    print(allocations_aligned[allocations_aligned.sum(axis=1) != 1])
-    branches_by_failed_allocation_days = branch_tracker_aligned[allocations_aligned.sum(
-        axis=1) != 1].sum(axis=0)
+    print(allocations_aligned[(
+        allocations_aligned.sum(axis=1) - 1).abs() > 0.0001])
+    branches_by_failed_allocation_days = branch_tracker_aligned[(
+        allocations_aligned.sum(axis=1) - 1).abs() > 0.0001].sum(axis=0)
     branches_with_failed_allocation_days = branches_by_failed_allocation_days[
         branches_by_failed_allocation_days != 0].index.values
 

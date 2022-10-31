@@ -51,7 +51,8 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
     """
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -97,12 +98,34 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
         indented_print(
             f"selected_entries = sorted(entries, reverse={node[':select-fn'] == ':top'})[:{int(node[':select-n'])}]")
         indented_print(f"for _sort_value, ticker in selected_entries:")
+        # use weight of first child (will be same across all children)
+        weight = logic.advance_branch_state(
+            current_node_branch_state, logic.get_node_children(node)[0]).weight
         indented_print(
-            f"allocations.at[row, ticker] += {current_node_branch_state.weight}", indent_offset=1)
+            f"allocations.at[row, ticker] += {weight}", indent_offset=1)
 
         # Debugging
         # indented_print(
         #     f"print(entries, '{node[':select-fn']} {node[':select-n']}', selected_entries)")
+
+        return
+    elif logic.is_weight_inverse_volatility_node(node):
+        indented_print(
+            f"branch_tracker.at[row, '{current_node_branch_state.branch_path_ids[-1]}'] = 1")
+        indented_print(f"entries = [")
+        for indicator in traversers.extract_inverse_volatility_indicators(node):
+            fmt = extract_indicator_key_from_indicator(indicator)
+            indented_print(
+                f"(1/indicators.at[row, '{fmt}'], '{indicator['val']}'),", indent_offset=1)
+        indented_print(f"]")
+        indented_print(
+            f"overall_inverse_volatility = sum(t[0] for t in entries)")
+        indented_print(f"for inverse_volatility, ticker in entries:")
+        # use weight of first child (will be same across all children)
+        weight = logic.advance_branch_state(
+            current_node_branch_state, logic.get_node_children(node)[0]).weight
+        indented_print(
+            f"allocations.at[row, ticker] += {weight} * (inverse_volatility / overall_inverse_volatility)", indent_offset=1)
 
         return
 
@@ -112,8 +135,6 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
 
 
 def convert_to_vectorbt(root_node) -> str:
-    assert not traversers.collect_nodes_of_type(
-        ":wt-inverse-vol", root_node), "Inverse volatility weighting is not supported."
     assert not traversers.collect_nodes_of_type(
         ":wt-marketcap", root_node), "Market cap weighting is not supported."
 
