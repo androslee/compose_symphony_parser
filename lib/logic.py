@@ -36,16 +36,13 @@ is_if_child_node = build_basic_node_type_checker(":if-child")
 
 is_equal_weight_node = build_basic_node_type_checker(":wt-cash-equal")
 is_specified_weight_node = build_basic_node_type_checker(":wt-cash-specified")
-# TODO: implement inverse volatility children (can only be :asset)
-# - "Inverse proportion to volatility of returns" is 1/close.pct_change().stddev() then normalizing to sum to 1.
-# - (max is 1)
-# TODO: weight by market cap (children can only be :asset, and then not ETFs)
-# - it's included (statically) in :asset, but that might introduce future bias. Should be dynamic.
-# - (max is 1)
+is_weight_inverse_volatility_node = build_basic_node_type_checker(
+    ":wt-inverse-vol")
+is_weight_marketcap_node = build_basic_node_type_checker(":wt-marketcap")
 
 
 def is_weight_node(node):
-    return is_equal_weight_node(node) or is_specified_weight_node(node)
+    return is_equal_weight_node(node) or is_specified_weight_node(node) or is_weight_inverse_volatility_node(node) or is_weight_marketcap_node(node)
 
 
 is_group_node = build_basic_node_type_checker(":group")

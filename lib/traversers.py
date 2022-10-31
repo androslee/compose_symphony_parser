@@ -69,6 +69,17 @@ def extract_filter_indicators(node) -> typing.List[dict]:
     return indicators
 
 
+def extract_inverse_volatility_indicators(node) -> typing.List[dict]:
+    indicators = []
+    for ticker in [logic.get_ticker_of_asset_node(child) for child in logic.get_node_children(node)]:
+        indicators.append({
+            "fn": logic.ComposerIndicatorFunction.STANDARD_DEVIATION_RETURNS,
+            "val": ticker,
+            "window-days": int(node[":window-days"]),
+        })
+    return indicators
+
+
 def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]:
     """
     Collects indicators referenced
@@ -107,6 +118,15 @@ def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]
         for indicator in extract_filter_indicators(node):
             indicator.update({
                 "source": ":filter sort-by",
+                "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
+                "weight": current_node_branch_state.weight,
+            })
+            indicators.append(indicator)
+
+    if logic.is_weight_inverse_volatility_node(node):
+        for indicator in extract_inverse_volatility_indicators(node):
+            indicator.update({
+                "source": ":wt-inverse-vol",
                 "branch_path_ids": copy.copy(current_node_branch_state.branch_path_ids),
                 "weight": current_node_branch_state.weight,
             })
