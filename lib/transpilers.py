@@ -84,10 +84,13 @@ class VectorBTTranspiler():
 def main():
     from . import symphony_object, get_backtest_data
 
-    symphony_id = "sB0QNjnVjjCQdIpptNjQ"
+    symphony_id = "KvA0KYc57MQSyykdWcFs"
     symphony = symphony_object.get_symphony(symphony_id)
     root_node = symphony_object.extract_root_node_from_symphony_response(
         symphony)
+
+    print(HumanTextTranspiler.convert_to_string(root_node))
+    print(VectorBTTranspiler.convert_to_string(root_node))
 
     tickers = traversers.collect_referenced_assets(root_node)
 
@@ -116,6 +119,3 @@ def main():
     for branch_id in branches_with_failed_allocation_days:
         print(f"  -> id={branch_id}")
         print(allocations_aligned[branch_tracker_aligned[branch_id] == 1])
-
-    print(HumanTextTranspiler.convert_to_string(root_node))
-    print(VectorBTTranspiler.convert_to_string(root_node))
