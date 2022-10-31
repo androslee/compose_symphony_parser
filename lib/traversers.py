@@ -54,7 +54,7 @@ def extract_rhs_indicator(node) -> typing.Optional[dict]:
     return {
         "fn": node[":rhs-fn"],
         "val": node[":rhs-val"],
-        "window-days": int(node[":rhs-window-days"]),
+        "window-days": int(node.get(":rhs-window-days", 0)),
     }
 
 
