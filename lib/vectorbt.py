@@ -87,16 +87,22 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
         indented_print(
             f"branch_tracker.at[row, '{current_node_branch_state.branch_path_ids[-1]}'] = 1")
 
-        indented_print(f"for _sort_value, ticker in sorted([")
+        indented_print(f"entries = [")
         for filter_indicator in traversers.extract_filter_indicators(node):
             fmt = extract_indicator_key_from_indicator(filter_indicator)
             indented_print(
                 f"(indicators.at[row, '{fmt}'], '{filter_indicator['val']}'),", indent_offset=1)
+        indented_print(f"]")
+
         indented_print(
-            f"], reverse={node[':select-fn'] != ':top'})[{int(node[':select-n'])}:]:  # {node[':select-fn']} {int(node[':select-n'])}")
+            f"selected_entries = sorted(entries, reverse={node[':select-fn'] == ':top'})[:{int(node[':select-n'])}]")
+        indented_print(f"for _sort_value, ticker in selected_entries:")
         indented_print(
-            # The "/int(node[':select-n'])" logic is already applied in current_node_branch_state.weight
             f"allocations.at[row, ticker] += {current_node_branch_state.weight}", indent_offset=1)
+
+        # Debugging
+        # indented_print(
+        #     f"print(entries, '{node[':select-fn']} {node[':select-n']}', selected_entries)")
 
         return
 
@@ -106,6 +112,11 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
 
 
 def convert_to_vectorbt(root_node) -> str:
+    assert not traversers.collect_nodes_of_type(
+        ":wt-inverse-vol", root_node), "Inverse volatility weighting is not supported."
+    assert not traversers.collect_nodes_of_type(
+        ":wt-marketcap", root_node), "Market cap weighting is not supported."
+
     output = io.StringIO()
     _convert_to_vectorbt(root_node, file=output)
     text = output.getvalue()
@@ -138,7 +149,7 @@ def build_allocations_matrix(closes):
     #
     # Algorithm Logic and instrumentation
     #
-    allocations = pd.DataFrame(index=indicators.index, columns=closes.columns).fillna(0)
+    allocations = pd.DataFrame(index=indicators.index, columns=closes.columns).fillna(0.0)
 
     # Track branch usage based on :id of "leaf" condition (closest :if-child up the tree to that leaf node)
     branch_tracker = pd.DataFrame(index=indicators.index, columns={repr(sorted(branches_by_leaf_node_id.keys()))}).fillna(0)

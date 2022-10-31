@@ -4,3 +4,4 @@ yfinance
 pandas-ta
 vectorbt
 quantstats
+pytz

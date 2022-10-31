@@ -1,7 +1,7 @@
 import copy
 import typing
 
-from . import logic, human, manual_testing
+from . import logic, human, symphony_object
 
 
 def collect_allocateable_assets(node) -> typing.Set[str]:
@@ -54,7 +54,7 @@ def extract_rhs_indicator(node) -> typing.Optional[dict]:
     return {
         "fn": node[":rhs-fn"],
         "val": node[":rhs-val"],
-        "window-days": int(node[":rhs-window-days"]),
+        "window-days": int(node.get(":rhs-window-days", 0)),
     }
 
 
@@ -217,13 +217,24 @@ def collect_branches(root_node) -> typing.Mapping[str, str]:
 # - stuff in :filter
 
 
+def collect_nodes_of_type(step: str, node: dict) -> typing.List[dict]:
+    s = []
+    if node[":step"] == step:
+        s.append(node)
+    for child_node in logic.get_node_children(node):
+        s.extend(collect_nodes_of_type(step, child_node))
+    return s
+
+
 def main():
-    path = 'inputs/tqqq_long_term.edn'
-    path = 'inputs/simple.edn'
-    root_node = manual_testing.get_root_node_from_path(path)
+    import pprint
 
-    print("All branches:")
-    for branch_path, branch_str in collect_branches(root_node).items():
-        print("  " + branch_str)
+    symphony_id = "RspMV6gSM7tX3x6yEseZ"
+    symphony = symphony_object.get_symphony(symphony_id)
+    root_node = symphony_object.extract_root_node_from_symphony_response(
+        symphony)
 
-    # print(human.convert_to_pretty_format(root_node))
+    assert not collect_nodes_of_type(
+        ":wt-inverse-vol", root_node), "Inverse volatility weighting is not supported."
+    assert not collect_nodes_of_type(
+        ":wt-marketcap", root_node), "Market cap weighting is not supported."

@@ -129,15 +129,19 @@ class NodeBranchState:
 
 def extract_weight_factor(parent_node_branch_state: NodeBranchState, node) -> float:
     # Do not care about :weight if parent type is not a specific node type (UI leaves this strewn everywhere)
+    weight = 1
+
     if ":weight" in node and parent_node_branch_state.node_type in (":wt-cash-specified",):
-        return int(node[":weight"][":num"]) / int(node[":weight"][":den"])
+        weight *= int(node[":weight"][":num"]) / int(node[":weight"][":den"])
+
     # If equal weight, apply weight now; children will ignore any :weight instruction on them.
-    elif node[":step"] == ":wt-cash-equal":
-        return 1. / len(get_node_children(node))
-    elif is_filter_node(node):  # equal weight all filter results
-        return 1. / int(node[":select-n"])
-    else:
-        return 1  # no change
+    if node[":step"] == ":wt-cash-equal":
+        weight /= len(get_node_children(node))
+
+    if is_filter_node(node):  # equal weight all filter results
+        weight /= int(node[":select-n"])
+
+    return weight
 
 # "reducer" signature / design pattern
 
