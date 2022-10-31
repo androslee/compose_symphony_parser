@@ -97,7 +97,8 @@ def print_children(node, depth=0, parent_node_branch_state: typing.Optional[logi
     """
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 

@@ -76,7 +76,8 @@ def collect_indicators(node, parent_node_branch_state=None) -> typing.List[dict]
 
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -138,7 +139,8 @@ def collect_conditions(node) -> typing.List[dict]:
 def collect_terminal_branch_paths(node, parent_node_branch_state: typing.Optional[logic.NodeBranchState] = None) -> typing.Set[str]:
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -163,7 +165,8 @@ def collect_condition_strings_by_id(node, parent_node=None, parent_node_branch_s
 
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -205,7 +208,7 @@ def collect_branches(root_node) -> typing.Mapping[str, str]:
     branches_by_path = {}
     for branch_path in branch_paths:
         conditional_ids = branch_path.split("/")
-        condition_strings = [condition_strings_by_id[condition_id]
+        condition_strings = [condition_strings_by_id.get(condition_id, "[always]")
                              for condition_id in conditional_ids]
         branches_by_path[branch_path] = " AND ".join(condition_strings)
     return branches_by_path

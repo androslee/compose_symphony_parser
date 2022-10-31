@@ -51,7 +51,8 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
     """
     if not parent_node_branch_state:
         # current node is :root, there is no higher node
-        parent_node_branch_state = logic.NodeBranchState(1, [], "")
+        parent_node_branch_state = logic.build_node_branch_state_from_root_node(
+            node)
     parent_node_branch_state = typing.cast(
         logic.NodeBranchState, parent_node_branch_state)
 
@@ -97,8 +98,11 @@ def print_python_logic(node, parent_node_branch_state: typing.Optional[logic.Nod
         indented_print(
             f"selected_entries = sorted(entries, reverse={node[':select-fn'] == ':top'})[:{int(node[':select-n'])}]")
         indented_print(f"for _sort_value, ticker in selected_entries:")
+        # use weight of first child (will be same across all children)
+        weight = logic.advance_branch_state(
+            current_node_branch_state, logic.get_node_children(node)[0]).weight
         indented_print(
-            f"allocations.at[row, ticker] += {current_node_branch_state.weight}", indent_offset=1)
+            f"allocations.at[row, ticker] += {weight}", indent_offset=1)
 
         # Debugging
         # indented_print(

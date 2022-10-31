@@ -125,21 +125,35 @@ class NodeBranchState:
     weight: float  # do not read this on :wt-* nodes, behavior not guaranteed
     branch_path_ids: typing.List[str]
     node_type: str
+    node: typing.Optional[dict] = None
+
+
+def build_node_branch_state_from_root_node(node) -> NodeBranchState:
+    return NodeBranchState(1, [node[":id"]], ":root", node)
 
 
 def extract_weight_factor(parent_node_branch_state: NodeBranchState, node) -> float:
     # Do not care about :weight if parent type is not a specific node type (UI leaves this strewn everywhere)
     weight = 1
 
-    if ":weight" in node and parent_node_branch_state.node_type in (":wt-cash-specified",):
+    # :wt-cash-specified parent means :weight is specified on this node
+    if parent_node_branch_state.node_type == ":wt-cash-specified" and ":weight" in node:
         weight *= int(node[":weight"][":num"]) / int(node[":weight"][":den"])
 
-    # If equal weight, apply weight now; children will ignore any :weight instruction on them.
-    if node[":step"] == ":wt-cash-equal":
-        weight /= len(get_node_children(node))
+    # :wt-cash-equal parent means apply equal % across all siblings of this node
+    if parent_node_branch_state.node_type == ":wt-cash-equal":
+        if parent_node_branch_state.node:
+            weight /= len(get_node_children(parent_node_branch_state.node))
 
-    if is_filter_node(node):  # equal weight all filter results
-        weight /= int(node[":select-n"])
+    # :filter parent means apply equal % across :select-n of parent
+    if parent_node_branch_state.node_type == ":filter":
+        if parent_node_branch_state.node:  # always true at this point
+            weight /= int(parent_node_branch_state.node.get(":select-n", 1))
+
+    # :wt-inverse-vol cannot be computed here, theoretical max is 100%
+    # :wt-marketcap cannot be computed here, theoretical max is 100%
+
+    # There are no other blocks which impact weights.
 
     return weight
 
@@ -151,6 +165,7 @@ def advance_branch_state(parent_node_branch_state: NodeBranchState, node) -> Nod
 
     if node[":step"] != ":group":
         current_node_branch_state.node_type = node[":step"]
+        current_node_branch_state.node = node
 
     if is_if_child_node(node):
         current_node_branch_state.branch_path_ids.append(node[":id"])
