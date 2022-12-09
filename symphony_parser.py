@@ -68,9 +68,7 @@ class InFileReader:
             created at:.... %s \r\n
             symphony name:. %s\r\n
             description at: %s \r\n
-                  
-                  
-                  """ % (owner, name, created, symph_name, description ))
+            """ % (owner, name, created, symph_name, description ))
             
             
     def readFile(self, url_loaded = False):
@@ -119,18 +117,13 @@ class InFileReader:
         #'#{1 2 3}'
         
         return
-        
-        
 
 
 class OutfileBase:
-    
     def __init__(self):
-    
         return
     
-class OutfileHuman(OutfileBase):
-    
+class OutfileHuman(OutfileBase): 
     def __init__(self, filePath):
         super().__init__()
         self.filePath = filePath
@@ -139,26 +132,24 @@ class OutfileHuman(OutfileBase):
     def show(self, data):
         print(transpilers.HumanTextTranspiler.convert_to_string(data))
         
+    def get_text(self, data):
+        return transpilers.HumanTextTranspiler.convert_to_string(data)
     
-    
-#TODO finish    
 class OutfileQuantConnect(OutfileBase):
-    
-    
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
         return
+
+    def show(self, data):
+        print(transpilers.QuantConnectTranspiler.convert_to_string(data))
         
     
 #TODO finish    
 class OutfileVectorBt(OutfileBase):
-    
-    
     def __init__(self):
         super().__init__()
         return
-        
-    # 
+
     def show(self, data):
         print(transpilers.VectorBTTranspiler.convert_to_string(data))
         
@@ -170,7 +161,6 @@ def main()-> int:
     parser.add_argument('-o','--outfile', dest="outfile", action="store", default="OUTFILE", help=' output file to save the parsed text to.  if not given, will use stdout', required=False)
     parser.add_argument('-m','--mode', dest="mode", action="store", default="human", help=' output parsing mode to use.  if none given, will parse for "human readable output".  modes are: quantconnect, vectorbt, tradingview, thinkscript', required=False)
     parser.add_argument('-b', '--bulk', action="store_true", dest='bulk', default='False', help="it means the specified input is a filepath, containing a bulk list of urls, or filenames to process.  one url or file path per line")
-    
     parser.add_argument('-u', '--url', action="store_true", dest='url', default='False', help="specifies that the input file path is actually the url to a shared, public symphony on composer.trade")
     parser.add_argument('-p', '--parent', action="store_true", dest='parent', default='False', help="specifies that we should try and look up the parents of this symphony, and get all previous copied information too.  only works if the 'infile' given was a url")
     
@@ -187,8 +177,6 @@ def main()-> int:
         else:
             url_list.append(args['infile'])
             # just add the single one to the list and have it process the "list" anyways
-        
-        
         
         
         #todo move to request this from the composer site instead of hardcoding
@@ -258,6 +246,13 @@ def main()-> int:
                     vectorParser = OutfileVectorBt()
                     vectorParser.show(inFileParser.data)
 
+                if args["mode"] == "quantconnect":
+                    quantconnectParser = OutfileQuantConnect()
+                    humanParser = OutfileHuman(args["infile"])
+                    quantconnectParser.show(
+                        humanParser.get_text(inFileParser.root_node)
+                    )
+
     else:
         file_list = []
         if args['bulk'] == True:
@@ -283,6 +278,13 @@ def main()-> int:
             if args["mode"] == "vector":
                 vectorParser = OutfileVectorBt()
                 vectorParser.show(inFileParser.data)
+
+            if args["mode"] == "quantconnect":
+                quantconnectParser = OutfileQuantConnect()
+                humanParser = OutfileHuman(args["infile"])
+                quantconnectParser.show(
+                    humanParser.show(inFileParser.root_node)
+                )
     
     return 0
 #TODO make generic class for output mode
