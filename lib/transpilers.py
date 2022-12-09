@@ -4,7 +4,7 @@ import typing
 import pandas as pd
 import pandas_ta
 
-from . import human, vectorbt, logic, traversers
+from . import human, vectorbt, logic, traversers, quantconnect
 
 
 class Transpiler():
@@ -12,11 +12,15 @@ class Transpiler():
     def convert_to_string(cls, root_node: dict) -> str:
         raise NotImplementedError()
 
-
 class HumanTextTranspiler():
     @staticmethod
     def convert_to_string(root_node: dict) -> str:
         return human.convert_to_pretty_format(root_node)
+
+class QuantConnectTranspiler():
+    @staticmethod
+    def convert_to_string(root_node: dict) -> str:
+        return quantconnect.output_strategy(root_node)
 
 
 #
