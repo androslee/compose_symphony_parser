@@ -11,9 +11,6 @@ config = {
   "password": "YOUR-PASSWORD"
 }
 
-chatbot = Chatbot(config, conversation_id=None)
-
-
 def main():
     path = 'inputs/tqqq_long_term.edn'
     root_node = manual_testing.get_root_node_from_path(path)
@@ -21,6 +18,8 @@ def main():
 
 
 def output_strategy(text) -> str:
+    # Initialize the Chatbot
+    chatbot = Chatbot(config, conversation_id=None)
     # Generate the prompt to ask ChatGPT for the code
     prompt = f"""Could you convert the following trading logic into a C# QuantConnect strategy? When finished please say "THE END".
 
