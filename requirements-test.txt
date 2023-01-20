@@ -1,4 +1,3 @@
-python==3.9.15
 edn_format==0.7.5
 requests
 yfinance
