@@ -1,0 +1,9 @@
+edn_format==0.7.5
+requests
+yfinance
+pandas-ta
+vectorbt
+quantstats
+pytz
+pandas==1.5.3
+dateparser==1.1.6
