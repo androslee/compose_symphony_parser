@@ -1,6 +1,6 @@
 edn_format==0.7.5
 requests
-yfinance
+yfinance==0.2.3
 pandas-ta
 vectorbt
 quantstats
