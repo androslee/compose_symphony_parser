@@ -17,16 +17,20 @@ pip3 install -r requirements.txt
 
 ## ChatGPT Transpiling Support
 
-Support for QuantConnect strategies is done by leveraging ChatGPT to transpile the human-readable format into a QuantConnect strategy.
-`python3 ./parser.py -m quantconnect -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u`
+**As of December 13th, ChatGPT [added auth protections!](https://github.com/acheong08/ChatGPT/wiki/Setup)**
+_This requires a DESKTOP environment as the script can no longer be ran headless._
 
-You must have ChatGPT / OpenAI credential (https://chat.openai.com/chat) and place them in the `lib/quantconnect.py` at the top like so:
-```python
-	config = {
-		"email": "your@email.address",
-		"password": "password"
-	}
+Previous versions of this script are broken until you run the following commands:
 ```
+pip3 install --upgrade revChatGPT
+playwright install
+```
+
+Then, when using ChatGPT you will be required to login using your browser. 
+
+Support for QuantConnect strategies is done by leveraging ChatGPT to transpile the human-readable format into a QuantConnect strategy.
+`python3 ./symphony_parser.py -m quantconnect -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u`
+
 
 # Usage
 ```
@@ -48,7 +52,7 @@ python3 symphony_parser.py -m human -u -i https://app.composer.trade/symphony/Pd
 python3 symphony_parser.py -m human -p -u -b -i inputs/bulk_symphonies.txt 
  prints a human formatted output, download the json formatted edn_encoded symphony directly from composer, all symphony parents, printing them directly to the screen, AND reads the text file which contains a list of urls which it bulk reads from.  can be urls or a list of local file paths for json encoded edn files.
 
-python3 .ymphony_parser.py -m quantconnect -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u
+python3 .symphony_parser.py -m quantconnect -i https://app.composer.trade/symphony/PdgUAAy4GmEQvGyKsYZt/details -u
   will print a C# QuantConnect strategy, transpiled by ChatGPT
 
 infile: the file that contains the text encoded symphony 
