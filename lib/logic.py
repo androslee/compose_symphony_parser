@@ -1,4 +1,3 @@
-import copy
 from dataclasses import dataclass
 import typing
 
@@ -123,6 +122,10 @@ class NodeBranchState:
     branch_path_ids: typing.List[str]
     parent_nodes: typing.List[dict]
 
+    def copy(self):
+        return NodeBranchState(weight=self.weight, branch_path_ids=[i for i in self.branch_path_ids], parent_nodes=[n for n in self.parent_nodes])
+
+
 
 def build_node_branch_state_from_root_node(node) -> NodeBranchState:
     return NodeBranchState(1, [node[":id"]], [node])
@@ -159,7 +162,7 @@ def extract_weight_factor(parent_node_branch_state: NodeBranchState, node) -> fl
 
 
 def advance_branch_state(parent_node_branch_state: NodeBranchState, node) -> NodeBranchState:
-    current_node_branch_state = copy.deepcopy(parent_node_branch_state)
+    current_node_branch_state = parent_node_branch_state.copy()
 
     current_node_branch_state.parent_nodes.append(node)
 
